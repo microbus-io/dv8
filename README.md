@@ -104,7 +104,7 @@ The `Validator` interface enables types to define custom validations.
 
 ```go
 type Validator interface {
-	Validate() error
+    Validate() error
 }
 ```
 
