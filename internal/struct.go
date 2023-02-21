@@ -23,12 +23,26 @@ import (
 )
 
 // validateStruct takes in a data struct and validates each of its fields given their dv8 field tags.
-func validateStruct(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if tagsContain(tags, "required") && !refVal.IsValid() {
-		return errors.New("value is required")
+func validateStruct(refType reflect.Type, refVal reflect.Value, structTags []string) (err error) {
+	if tagsContain(structTags, "required") {
+		zero := reflect.Zero(refType)
+		if reflect.DeepEqual(zero.Interface(), refVal.Interface()) {
+			return errors.New("value is required")
+		}
 	}
-	if !refVal.IsValid() {
-		return nil
+	// On runs the validation on a nested field
+	for _, t := range structTags {
+		if strings.HasPrefix(t, "on ") {
+			fld, ok := refType.FieldByName(t[3:])
+			if ok {
+				rt := fld.Type
+				rv := refVal.FieldByName(t[3:])
+				err = validateAny(rt, rv, structTags)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 	// Iterate over fields
 	for i := 0; i < refType.NumField(); i++ {
@@ -37,13 +51,20 @@ func validateStruct(refType reflect.Type, refVal reflect.Value, tags []string) (
 		if tagVal == "-" {
 			continue
 		}
-		tags := strings.Split(tagVal, ",")
-		if tagsContain(tags, "-") {
+		fldTags := strings.Split(tagVal, ",")
+		if tagsContain(fldTags, "-") {
 			continue
 		}
-		rt := refType.Field(i).Type
+		rt := fld.Type
 		rv := refVal.Field(i)
-		err := validateAny(rt, rv, tags)
+		// Main fields run validations of the parent struct too
+		if tagsContain(fldTags, "main") {
+			err = validateAny(rt, rv, structTags)
+			if err != nil {
+				return fmt.Errorf("%s: %w", fld.Name, err)
+			}
+		}
+		err = validateAny(rt, rv, fldTags)
 		if err != nil {
 			return fmt.Errorf("%s: %w", fld.Name, err)
 		}

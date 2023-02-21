@@ -21,8 +21,6 @@ import (
 
 // validateAny validates the value of any type against the tags.
 func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	refType, refVal = followPointers(refType, refVal)
-
 	switch refType.String() {
 	case "string":
 		return validateString(refVal, tags)
@@ -41,6 +39,8 @@ func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err
 	}
 
 	switch refType.Kind() {
+	case reflect.Pointer:
+		return validatePointer(refType, refVal, tags)
 	case reflect.Struct:
 		return validateStruct(refType, refVal, tags)
 	case reflect.Map:
@@ -50,13 +50,4 @@ func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err
 	}
 
 	return nil
-}
-
-// followPointers follows pointers to the type and value of the element
-func followPointers(refType reflect.Type, refVal reflect.Value) (reflect.Type, reflect.Value) {
-	for refType.Kind() == reflect.Pointer {
-		refVal = refVal.Elem()
-		refType = refType.Elem()
-	}
-	return refType, refVal
 }

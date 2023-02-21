@@ -25,10 +25,7 @@ import (
 
 // validateFloat validates the value of a floating point number against the tags.
 func validateFloat(refVal reflect.Value, tags []string) (err error) {
-	var f float64
-	if refVal.IsValid() {
-		f = refVal.Float()
-	}
+	f := refVal.Float()
 	// Default value and required
 	required := false
 	changed := false

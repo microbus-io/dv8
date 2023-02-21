@@ -43,6 +43,7 @@ func TestBool_Pointer(t *testing.T) {
 	x.B = &flag
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, true, *x.B)
 
 	x.B = nil
 	err = Validate(&x)

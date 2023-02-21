@@ -25,10 +25,7 @@ import (
 
 // validateTime validates the value of a time against the tags.
 func validateTime(refVal reflect.Value, tags []string) (err error) {
-	var i time.Time
-	if refVal.IsValid() {
-		i = refVal.Interface().(time.Time)
-	}
+	i := refVal.Interface().(time.Time)
 	// Default value and required
 	required := false
 	changed := false

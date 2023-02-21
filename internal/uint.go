@@ -25,10 +25,7 @@ import (
 
 // validateUint validates the value of an unsigned integer against the tags.
 func validateUint(refVal reflect.Value, tags []string) (err error) {
-	var i uint64
-	if refVal.IsValid() {
-		i = refVal.Uint()
-	}
+	i := refVal.Uint()
 	// Default value and required
 	required := false
 	changed := false

@@ -25,11 +25,8 @@ import (
 
 // validateArray validates the value of an array against the tags.
 func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if tagsContain(tags, "required") && (!refVal.IsValid() || refVal.IsNil()) {
+	if tagsContain(tags, "required") && refVal.IsNil() {
 		return errors.New("value is required")
-	}
-	if !refVal.IsValid() {
-		return nil
 	}
 	// Length
 	for _, t := range tags {
@@ -68,6 +65,7 @@ func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (e
 			}
 		}
 	}
+	// Nested elements
 	arrayType := refType.Elem()
 	switch arrayType.Kind() {
 	case reflect.Pointer, reflect.Struct, reflect.Array, reflect.Slice, reflect.Map:

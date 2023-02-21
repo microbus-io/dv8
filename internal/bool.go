@@ -25,10 +25,7 @@ import (
 
 // validateBool validates the value of a boolean against the tags.
 func validateBool(refVal reflect.Value, tags []string) (err error) {
-	var b bool
-	if refVal.IsValid() {
-		b = refVal.Bool()
-	}
+	b := refVal.Bool()
 	// Default value and required
 	required := false
 	changed := false

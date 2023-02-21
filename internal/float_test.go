@@ -39,10 +39,11 @@ func TestFloat_Pointer(t *testing.T) {
 	x := struct {
 		F *float64 `dv8:"required"`
 	}{}
-	f := float64(1)
+	f := float64(1.5)
 	x.F = &f
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, float64(1.5), *x.F)
 
 	x.F = nil
 	err = Validate(&x)

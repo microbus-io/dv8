@@ -25,10 +25,7 @@ import (
 
 // validateInt validates the value of a signed integer against the tags.
 func validateInt(refVal reflect.Value, tags []string) (err error) {
-	var i int64
-	if refVal.IsValid() {
-		i = refVal.Int()
-	}
+	i := refVal.Int()
 	// Default value and required
 	required := false
 	changed := false

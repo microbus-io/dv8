@@ -26,10 +26,7 @@ import (
 
 // validateString validates the value of a string against the tags.
 func validateString(refVal reflect.Value, tags []string) (err error) {
-	var s string
-	if refVal.IsValid() {
-		s = refVal.String()
-	}
+	s := refVal.String()
 	// Trim spaces
 	changed := false
 	if !tagsContain(tags, "notrim") {

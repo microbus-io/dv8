@@ -44,6 +44,7 @@ func TestDuration_Pointer(t *testing.T) {
 	x.D = &dur
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, time.Second, *x.D)
 
 	x.D = nil
 	err = Validate(&x)

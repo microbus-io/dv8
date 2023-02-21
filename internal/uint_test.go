@@ -43,6 +43,7 @@ func TestUint_Pointer(t *testing.T) {
 	x.I = &i
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, uint(1), *x.I)
 
 	x.I = nil
 	err = Validate(&x)

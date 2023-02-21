@@ -16,10 +16,17 @@ limitations under the License.
 package internal
 
 import (
+	"errors"
 	"reflect"
 )
 
-// Validate takes in a reference to a data struct and validates each of its fields against their dv8 field tags.
-func Validate(data any) error {
-	return validateAny(reflect.TypeOf(data), reflect.ValueOf(data), nil)
+// validatePointer validates the value of a pointer against the tags.
+func validatePointer(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+	if refVal.IsNil() {
+		if tagsContain(tags, "required") {
+			return errors.New("value is required")
+		}
+		return nil
+	}
+	return validateAny(refType.Elem(), refVal.Elem(), tags)
 }

@@ -25,11 +25,8 @@ import (
 
 // validateMap validates the value of a map against the tags.
 func validateMap(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if tagsContain(tags, "required") && (!refVal.IsValid() || refVal.IsNil()) {
+	if tagsContain(tags, "required") && refVal.IsNil() {
 		return errors.New("value is required")
-	}
-	if !refVal.IsValid() {
-		return nil
 	}
 	// Length
 	for _, t := range tags {

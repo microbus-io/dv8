@@ -17,6 +17,7 @@ package internal
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -42,12 +43,16 @@ func TestStruct_Required(t *testing.T) {
 
 func TestStruct_Pointer(t *testing.T) {
 	x := struct {
-		S *struct{} `dv8:"required"`
+		S *struct{ I int } `dv8:"required"`
 	}{}
-	s := struct{}{}
+	s := struct{ I int }{I: 1}
 	x.S = &s
 	err := Validate(&x)
 	assert.NoError(t, err)
+
+	x.S.I = 0
+	err = Validate(&x)
+	assert.ErrorContains(t, err, "required")
 
 	x.S = nil
 	err = Validate(&x)
@@ -85,4 +90,96 @@ func TestStruct_Nesting(t *testing.T) {
 	y.N.I = 0
 	err = Validate(&x)
 	assert.ErrorContains(t, err, "required")
+}
+
+func TestStruct_On1(t *testing.T) {
+	type child struct {
+		I int
+	}
+	type parent struct {
+		C *child `dv8:"required,val>2,on I"`
+	}
+	x := parent{
+		C: &child{
+			I: 1,
+		},
+	}
+	err := Validate(&x)
+	assert.Error(t, err, "greater")
+
+	x.C.I = 3
+	err = Validate(&x)
+	assert.NoError(t, err)
+
+	x.C.I = 0
+	err = Validate(&x)
+	assert.Error(t, err, "required")
+
+	x.C = nil
+	err = Validate(&x)
+	assert.Error(t, err, "required")
+}
+
+func TestStruct_On2(t *testing.T) {
+	type Timestamp struct {
+		time.Time
+	}
+	type Key struct {
+		ID int
+	}
+	type Person struct {
+		Name string
+	}
+	type MyData struct {
+		K       Key       `dv8:"required,on ID"`
+		Expires Timestamp `dv8:"required,on Time"`
+		Owner   Person    `dv8:"default=Unknown,on Name"`
+	}
+
+	x := MyData{}
+	err := Validate(&x)
+	assert.Error(t, err, "required")
+	assert.Error(t, err, "K:")
+
+	x.K.ID = 1
+	err = Validate(&x)
+	assert.Error(t, err, "required")
+	assert.Error(t, err, "Expires:")
+
+	x.Expires.Time = time.Now()
+	err = Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, x.Owner.Name, "Unknown")
+}
+
+func TestStruct_Main(t *testing.T) {
+	type Timestamp struct {
+		time.Time `dv8:"main"`
+	}
+	type Key struct {
+		ID int `dv8:"main"`
+	}
+	type Person struct {
+		Name string `dv8:"main"`
+	}
+	type MyData struct {
+		K       Key       `dv8:"required"`
+		Expires Timestamp `dv8:"required"`
+		Owner   Person    `dv8:"default=Unknown"`
+	}
+
+	x := MyData{}
+	err := Validate(&x)
+	assert.Error(t, err, "required")
+	assert.Error(t, err, "K:")
+
+	x.K.ID = 1
+	err = Validate(&x)
+	assert.Error(t, err, "required")
+	assert.Error(t, err, "Expires:")
+
+	x.Expires.Time = time.Now()
+	err = Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, x.Owner.Name, "Unknown")
 }

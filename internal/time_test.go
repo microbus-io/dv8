@@ -44,6 +44,7 @@ func TestTime_Pointer(t *testing.T) {
 	x.T = &now
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, now, *x.T)
 
 	x.T = nil
 	err = Validate(&x)

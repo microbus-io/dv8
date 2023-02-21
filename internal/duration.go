@@ -25,10 +25,7 @@ import (
 
 // validateDuration validates the value of a duration against the tags.
 func validateDuration(refVal reflect.Value, tags []string) (err error) {
-	var d time.Duration
-	if refVal.IsValid() {
-		d = time.Duration(refVal.Int())
-	}
+	d := time.Duration(refVal.Int())
 	// Default value and required
 	required := false
 	changed := false

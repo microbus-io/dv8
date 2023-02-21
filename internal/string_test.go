@@ -43,6 +43,7 @@ func TestString_Pointer(t *testing.T) {
 	x.S = &s
 	err := Validate(&x)
 	assert.NoError(t, err)
+	assert.Equal(t, "foo", *x.S)
 
 	x.S = nil
 	err = Validate(&x)
