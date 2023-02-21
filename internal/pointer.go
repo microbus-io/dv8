@@ -28,5 +28,15 @@ func validatePointer(refType reflect.Type, refVal reflect.Value, tags []string) 
 		}
 		return nil
 	}
+	// Call the struct's Validate method, if implemented
+	if refType.Implements(reflect.TypeOf((*Validator)(nil)).Elem()) {
+		validator, ok := refVal.Interface().(Validator)
+		if ok {
+			err = validator.Validate()
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return validateAny(refType.Elem(), refVal.Elem(), tags)
 }

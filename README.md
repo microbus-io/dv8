@@ -44,9 +44,11 @@ if err != nil {
 |`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`string`|Enforces a constraint on the length of the string (in runes, not bytes)
 |`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`, `[]any`|Enforces a constraint on the length of the map or array. A `nil` map or array are of length 0|
 |`regexp`|`string`|Requires the string to match a regular expression|
-|`notrim`|`string`|Disables the default trimming of leading and trailing whitespaces|
 |`on`|`struct`, `*struct`|Applies the directives on the named field of the struct instead of the struct itself (see below)|
 |`main`|`any`|Applies the directives set on the parent struct to the field (see below)|
+|`notrim`|`string`|Disables the default trimming of leading and trailing whitespaces|
+|`tolower`|`string`|Transforms the string to lowercase|
+|`toupper`|`string`|Transforms the string to uppercase|
 |`-`|`any`|Skips the field and stops recursion into nested fields|
 
 ## `on` and `main`
@@ -92,6 +94,17 @@ type MyData struct {
     Expires Timestamp `dv8:"required"`
     // Set default Name of Person to "Unknown"
     Owner   Person    `dv8:"default=Unknown"`
+}
+```
+
+## `Validator' interface
+
+The `Validator` interface enables types to define custom validations.
+`DV8` calls `Validate()` on structs that implement the `Validator` interface and considers any error received as a validation error.
+
+```go
+type Validator interface {
+	Validate() error
 }
 ```
 

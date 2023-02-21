@@ -41,6 +41,12 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 	for _, t := range tags {
 		if t == "required" {
 			required = true
+		} else if t == "toupper" && s != strings.ToUpper(s) {
+			s = strings.ToUpper(s)
+			changed = true
+		} else if t == "tolower" && s != strings.ToLower(s) {
+			s = strings.ToLower(s)
+			changed = true
 		} else if s == "" && strings.HasPrefix(t, "default=") {
 			def := t[len("default="):]
 			if def != s {

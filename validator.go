@@ -20,7 +20,7 @@ import (
 )
 
 /*
-Validate takes in a reference to a data struct (pointer, slice or map)
+Validate takes in a reference to a data struct (pointer, map of, slice of)
 and validates each of its fields against their dv8 field tags.
 It recurses into nested structs.
 
@@ -37,16 +37,22 @@ Example:
 	p := &Person{
 		First: "Jane",
 		Last:  "Simmons",
-		Age:   21,
-		State: "CA",
-		Zip:   "95000",
+		State: "",        // Set default to "CA"
+		Age:   200,       // Detect bad data
+		Zip:   " 12345",  // Trim whitespaces
 	}
 
 	err := dv8.Validate(p)
 	if err != nil {
-		return err
+		return err // Age: must be less than or equal to 120
 	}
 */
 func Validate(data any) error {
 	return internal.Validate(data)
+}
+
+// Validator implements a single method that returns an error if a struct is invalid.
+// DV8 calls this function during validation on types that implements it.
+type Validator interface {
+	Validate() error
 }

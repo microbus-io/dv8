@@ -30,6 +30,16 @@ func validateStruct(refType reflect.Type, refVal reflect.Value, structTags []str
 			return errors.New("value is required")
 		}
 	}
+	// Call the struct's Validate method, if implemented
+	if refType.Implements(reflect.TypeOf((*Validator)(nil)).Elem()) {
+		validator, ok := refVal.Interface().(Validator)
+		if ok {
+			err = validator.Validate()
+			if err != nil {
+				return err
+			}
+		}
+	}
 	// On runs the validation on a nested field
 	for _, t := range structTags {
 		if strings.HasPrefix(t, "on ") {

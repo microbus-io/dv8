@@ -16,18 +16,30 @@ limitations under the License.
 package internal
 
 import (
-	"reflect"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-// Validate takes in a reference to a data struct (pointer, map of, slice of)
-// and validates each of its fields against their dv8 field tags.
-// It recurses into nested structs.
-func Validate(data any) error {
-	return validateAny(reflect.TypeOf(data), reflect.ValueOf(data), nil)
+type BigRect struct {
+	W int `dv8:"val>=0"`
+	H int `dv8:"val>=0"`
 }
 
-// Validator implements a single method that returns an error if a struct is invalid.
-// DV8 calls this function during validation on types that implements it.
-type Validator interface {
-	Validate() error
+func (r *BigRect) Validate() error {
+	if r.H*r.W < 100 {
+		return errors.New("too small")
+	}
+	return nil
+}
+
+func TestPointer_Validator(t *testing.T) {
+	small := BigRect{W: 5, H: 5}
+	err := Validate(&small)
+	assert.Error(t, err, "too small")
+
+	big := BigRect{W: 50, H: 50}
+	err = Validate(&big)
+	assert.NoError(t, err)
 }

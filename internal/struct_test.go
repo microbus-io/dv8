@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -182,4 +183,26 @@ func TestStruct_Main(t *testing.T) {
 	err = Validate(&x)
 	assert.NoError(t, err)
 	assert.Equal(t, x.Owner.Name, "Unknown")
+}
+
+type SmallRect struct {
+	W int `dv8:"val>=0"`
+	H int `dv8:"val>=0"`
+}
+
+func (r SmallRect) Validate() error {
+	if r.H*r.W > 100 {
+		return errors.New("too big")
+	}
+	return nil
+}
+
+func TestStruct_Validator(t *testing.T) {
+	small := SmallRect{W: 5, H: 5}
+	err := Validate(small)
+	assert.NoError(t, err)
+
+	big := SmallRect{W: 50, H: 50}
+	err = Validate(big)
+	assert.Error(t, err, "too big")
 }
