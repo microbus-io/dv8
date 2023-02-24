@@ -37,9 +37,19 @@ func (r *BigRect) Validate() error {
 func TestPointer_Validator(t *testing.T) {
 	small := BigRect{W: 5, H: 5}
 	err := Validate(&small)
-	assert.Error(t, err, "too small")
+	assert.ErrorContains(t, err, "too small")
 
 	big := BigRect{W: 50, H: 50}
 	err = Validate(&big)
 	assert.NoError(t, err)
+}
+
+func TestPointer_ValidatorOfAnonymous(t *testing.T) {
+	x := struct {
+		*BigRect
+	}{
+		&BigRect{W: 5, H: 5},
+	}
+	err := Validate(x)
+	assert.ErrorContains(t, err, "too small")
 }

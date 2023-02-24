@@ -204,5 +204,15 @@ func TestStruct_Validator(t *testing.T) {
 
 	big := SmallRect{W: 50, H: 50}
 	err = Validate(big)
-	assert.Error(t, err, "too big")
+	assert.ErrorContains(t, err, "too big")
+}
+
+func TestStruct_ValidatorOfAnonymous(t *testing.T) {
+	x := struct {
+		SmallRect
+	}{
+		SmallRect{W: 50, H: 50},
+	}
+	err := Validate(x)
+	assert.ErrorContains(t, err, "too big")
 }
