@@ -97,14 +97,14 @@ type MyData struct {
 }
 ```
 
-## `Validator' interface
+## `Validator` interface
 
 The `Validator` interface enables types to define custom validations.
 `DV8` calls `Validate()` on structs that implement the `Validator` interface and considers any error received as a validation error.
 
 ```go
 type Validator interface {
-	Validate() error
+    Validate() error
 }
 ```
 
