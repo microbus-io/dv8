@@ -22,16 +22,6 @@ import (
 // validateAny validates the value of any type against the tags.
 func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	switch refType.String() {
-	case "string":
-		return validateString(refVal, tags)
-	case "int", "int8", "int16", "int32", "int64":
-		return validateInt(refVal, tags)
-	case "uint", "uint8", "uint16", "uint32", "uint64":
-		return validateUint(refVal, tags)
-	case "float32", "float64":
-		return validateFloat(refVal, tags)
-	case "bool":
-		return validateBool(refVal, tags)
 	case "time.Duration":
 		return validateDuration(refVal, tags)
 	case "time.Time":
@@ -39,6 +29,16 @@ func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err
 	}
 
 	switch refType.Kind() {
+	case reflect.String:
+		return validateString(refVal, tags)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return validateInt(refVal, tags)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return validateUint(refVal, tags)
+	case reflect.Float32, reflect.Float64:
+		return validateFloat(refVal, tags)
+	case reflect.Bool:
+		return validateBool(refVal, tags)
 	case reflect.Pointer:
 		return validatePointer(refType, refVal, tags)
 	case reflect.Struct:

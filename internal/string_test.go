@@ -286,3 +286,18 @@ func TestString_Regexp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, x.S, "FOO")
 }
+
+func TestString_RegexpBackslash(t *testing.T) {
+	x := struct {
+		S string `dv8:"regexp ^\\.$"`
+	}{
+		S: "m",
+	}
+	err := Validate(&x)
+	assert.Error(t, err, "pattern")
+
+	x.S = "."
+	err = Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, x.S, ".")
+}

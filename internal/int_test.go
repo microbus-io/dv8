@@ -167,3 +167,18 @@ func TestInt_Types(t *testing.T) {
 	err = Validate(&x)
 	assert.NoError(t, err)
 }
+
+func TestInt_PrimitiveType(t *testing.T) {
+	type Primitive int
+	x := struct {
+		I Primitive `dv8:"val>2"`
+	}{
+		I: 1,
+	}
+	err := Validate(&x)
+	assert.Error(t, err, "greater")
+
+	x.I = 3
+	err = Validate(&x)
+	assert.NoError(t, err)
+}
