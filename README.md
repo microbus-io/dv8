@@ -99,9 +99,9 @@ type MyData struct {
 
 ## Arrays and maps
 
-Except for the `arrlen` and `maplen` tags that apply to the array or map themselves, tags set
+Except for the `arrlen` and `maplen` directives that apply to the array or map themselves, directives set
 on an array or map apply to their value items.
-`DV8` tags are not enforced on the key values of a map.
+Directives are not enforced on the key values of a map.
 
 ```go
 type Group struct {
