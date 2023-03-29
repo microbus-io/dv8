@@ -154,10 +154,10 @@ type Rect struct {
     Bottom int `dv8:"val>=0"`
 }
 func (r *Rect) Validate() error {
-    if r.Left > r.Right {
+    if r.Left >= r.Right {
         return errors.New("right must be greater than left")
     }
-    if r.Top > r.Bottom {
+    if r.Top >= r.Bottom {
         return errors.New("bottom must be greater than top")
     }
 }
