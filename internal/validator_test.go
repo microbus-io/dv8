@@ -28,7 +28,7 @@ type Person struct {
 }
 
 type Directory struct {
-	Persons []*Person `dv8:"required,len>0"`
+	Persons []*Person `dv8:"arrlen>0"`
 }
 
 func Test_Directory(t *testing.T) {

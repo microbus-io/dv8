@@ -25,20 +25,20 @@ import (
 
 // validateMap validates the value of a map against the tags.
 func validateMap(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if tagsContain(tags, "required") && refVal.IsNil() {
-		return errors.New("value is required")
-	}
 	// Length
-	for _, t := range tags {
-		if strings.HasPrefix(t, "len") && len(t) > 4 {
-			// Example: len<8
-			operator := t[3:4]
+	for i, t := range tags {
+		if strings.HasPrefix(t, "maplen") && len(t) > 7 {
+			if refVal.IsNil() {
+				return errors.New("value is required")
+			}
+			// Example: maplen<8
+			operator := t[6:7]
 			var l int
-			if t[4] == '=' {
+			if t[7] == '=' {
 				operator += "="
-				l, err = strconv.Atoi(t[5:])
+				l, err = strconv.Atoi(t[8:])
 			} else {
-				l, err = strconv.Atoi(t[4:])
+				l, err = strconv.Atoi(t[7:])
 			}
 			if err != nil {
 				return err
@@ -63,19 +63,25 @@ func validateMap(refType reflect.Type, refVal reflect.Value, tags []string) (err
 			if err != nil {
 				return err
 			}
+			tags[i] = "" // Do not apply to items
 		}
 	}
 	// Nested elements
 	mapType := refType.Elem()
-	switch mapType.Kind() {
-	case reflect.Pointer, reflect.Struct, reflect.Array, reflect.Slice, reflect.Map:
-		iter := refVal.MapRange()
-		for iter.Next() {
-			val := iter.Value()
-			err = validateAny(mapType, val, nil)
-			if err != nil {
-				return err
-			}
+	iter := refVal.MapRange()
+	for iter.Next() {
+		val := iter.Value()
+		if refVal.CanSet() {
+			// Create an addressable copy of the value item
+			val = reflect.New(mapType).Elem()
+			val.Set(iter.Value())
+		}
+		err = validateAny(mapType, val, tags)
+		if err != nil {
+			return fmt.Errorf("[%v]: %w", iter.Key(), err)
+		}
+		if refVal.CanSet() {
+			refVal.SetMapIndex(iter.Key(), val)
 		}
 	}
 	return nil

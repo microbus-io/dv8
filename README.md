@@ -10,8 +10,8 @@ It draws inspiration from [Pydantic](https://docs.pydantic.dev).
 type Person struct {
     First   string `dv8:"required,len<=32"`
     Last    string `dv8:"required,len<=32"`
-    Age     int    `dv8:"val>=18,val<=120"`
-    State   string `dv8:"len==2,default=CA"`
+    Age     int    `dv8:"val>=0,val<=120"`
+    State   string `dv8:"len==2,toupper,default=CA"`
     Zip     string `dv8:"required,regexp ^[0-9]{5}$"`
 }
 
@@ -36,13 +36,13 @@ if err != nil {
 |Directive|Applicable types|Effect|
 |---|---|---|
 |`required`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`, `struct`|Requires a non-zero value to be provided|
-|`required`|`map[any]any`, `[]any`|Requires a non-`nil` value to be provided. Use `len>0` instead to require at least one element|
-|`required`|`*any`|Requires a non-`nil` non-zero value to be provided|
+|`required`|`*any`|Requires a non-`nil` value to be provided|
 |`default`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`|Sets a default value when the zero-value is provided|
 |`val` with `==` or `!=`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`|Enforces an equality constraint on the value|
 |`val` with `<=`, `<`, `>=` or `>`|`string`, `int`, `float`, `time.Time`, `time.Duration`|Enforces an ordering constraint on the value|
 |`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`string`|Enforces a constraint on the length of the string (in runes, not bytes)
-|`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`, `[]any`|Enforces a constraint on the length of the map or array. A `nil` map or array are of length 0|
+|`arrlen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`[]any`|Enforces a constraint on the length of the array. A `nil` array will fail the condition `arrlen>=0`|
+|`maplen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`|Enforces a constraint on the length of the map. A `nil` map will fail the condition `maplen>=0`|
 |`regexp`|`string`|Requires the string to match a regular expression|
 |`on`|`struct`, `*struct`|Applies the directives on the named field of the struct instead of the struct itself (see below)|
 |`main`|`any`|Applies the directives set on the parent struct to the field (see below)|
@@ -97,6 +97,44 @@ type MyData struct {
 }
 ```
 
+## Arrays and maps
+
+Except for the `arrlen` and `maplen` tags that apply to the array or map themselves, tags set
+on an array or map apply to their value items.
+`DV8` tags are not enforced on the key values of a map.
+
+```go
+type Group struct {
+    // Enforced on each of the (string) value items of the array
+    Names []string `dv8:"len>0,len<=32"`
+}
+g := Group{
+    Names: []string{"John", "Paul", ""},
+}
+err := dv8.Validate(&g)
+if err != nil {
+    return err // Names: [2]: length must be greater than 0
+}
+```
+
+```go
+type Directory struct {
+    // Enforced on each of the (string) value items of the map
+    Index map[int]string `dv8:"len>0,len<=32"`
+}
+d := Directory{
+    Index: map[int]string{
+        0: "John",
+        1: "Paul",
+        2: "",
+    },
+}
+err := dv8.Validate(&d)
+if err != nil {
+    return err // Index: [2]: length must be greater than 0
+}
+```
+
 ## `Validator` interface
 
 The `Validator` interface enables types to define custom validations.
@@ -105,6 +143,23 @@ The `Validator` interface enables types to define custom validations.
 ```go
 type Validator interface {
     Validate() error
+}
+```
+
+```go
+type Rect struct {
+    Top    int `dv8:"val>=0"`
+    Left   int `dv8:"val>=0"`
+    Right  int `dv8:"val>=0"`
+    Bottom int `dv8:"val>=0"`
+}
+func (r *Rect) Validate() error {
+    if r.Left > r.Right {
+        return errors.New("right must be greater than left")
+    }
+    if r.Top > r.Bottom {
+        return errors.New("bottom must be greater than top")
+    }
 }
 ```
 

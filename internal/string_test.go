@@ -301,3 +301,35 @@ func TestString_RegexpBackslash(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, x.S, ".")
 }
+
+func TestString_ToLower(t *testing.T) {
+	x := struct {
+		S string `dv8:"tolower,default=foo"`
+	}{
+		S: "",
+	}
+	err := Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, "foo", x.S)
+
+	x.S = "FOO"
+	err = Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, "foo", x.S)
+}
+
+func TestString_ToUpper(t *testing.T) {
+	x := struct {
+		S string `dv8:"toupper,default=FOO"`
+	}{
+		S: "",
+	}
+	err := Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, "FOO", x.S)
+
+	x.S = "foo"
+	err = Validate(&x)
+	assert.NoError(t, err)
+	assert.Equal(t, "FOO", x.S)
+}

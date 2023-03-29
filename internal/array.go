@@ -25,20 +25,20 @@ import (
 
 // validateArray validates the value of an array against the tags.
 func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if tagsContain(tags, "required") && refVal.IsNil() {
-		return errors.New("value is required")
-	}
 	// Length
-	for _, t := range tags {
-		if strings.HasPrefix(t, "len") && len(t) > 4 {
-			// Example: len<8
-			operator := t[3:4]
+	for i, t := range tags {
+		if strings.HasPrefix(t, "arrlen") && len(t) > 7 {
+			if refVal.IsNil() {
+				return errors.New("value is required")
+			}
+			// Example: arrlen<8
+			operator := t[6:7]
 			var l int
-			if t[4] == '=' {
+			if t[7] == '=' {
 				operator += "="
-				l, err = strconv.Atoi(t[5:])
+				l, err = strconv.Atoi(t[8:])
 			} else {
-				l, err = strconv.Atoi(t[4:])
+				l, err = strconv.Atoi(t[7:])
 			}
 			if err != nil {
 				return err
@@ -63,18 +63,16 @@ func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (e
 			if err != nil {
 				return err
 			}
+			tags[i] = "" // Do not apply to items
 		}
 	}
 	// Nested elements
 	arrayType := refType.Elem()
-	switch arrayType.Kind() {
-	case reflect.Pointer, reflect.Struct, reflect.Array, reflect.Slice, reflect.Map:
-		for j := 0; j < refVal.Len(); j++ {
-			val := refVal.Index(j)
-			err = validateAny(arrayType, val, nil)
-			if err != nil {
-				return err
-			}
+	for j := 0; j < refVal.Len(); j++ {
+		val := refVal.Index(j)
+		err = validateAny(arrayType, val, tags)
+		if err != nil {
+			return fmt.Errorf("[%d]: %w", j, err)
 		}
 	}
 	return nil
