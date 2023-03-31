@@ -20,7 +20,7 @@ import (
 )
 
 /*
-Validate takes in a reference to a data struct (pointer, map of, slice of)
+Validate takes in a reference to one or more data struct (pointer, map of, slice of)
 and validates each of its fields against their dv8 field tags.
 It recurses into nested structs.
 
@@ -47,8 +47,14 @@ Example:
 		return err // Age: must be less than or equal to 120
 	}
 */
-func Validate(data any) error {
-	return internal.Validate(data)
+func Validate(data ...any) error {
+	for i := range data {
+		err := internal.Validate(data[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Validator implements a single method that returns an error if a struct is invalid.
