@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -181,4 +182,23 @@ func TestInt_PrimitiveType(t *testing.T) {
 	x.I = 3
 	err = Validate(&x)
 	assert.NoError(t, err)
+}
+
+type Month int
+
+func (m Month) Validate() error {
+	if int(m) >= 1 && int(m) <= 12 {
+		return nil
+	}
+	return errors.New("invalid value")
+}
+
+func TestInt_Validator(t *testing.T) {
+	jan := Month(1)
+	err := Validate(&jan)
+	assert.NoError(t, err)
+
+	bad := Month(13)
+	err = Validate(&bad)
+	assert.ErrorContains(t, err, "invalid value")
 }

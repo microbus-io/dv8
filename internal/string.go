@@ -131,13 +131,25 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 			if err != nil {
 				return err
 			}
-		} else if strings.HasPrefix(t, "regexp") && len(t) > 7 {
+		} else if strings.HasPrefix(t, "regexp ") && len(t) > 7 {
 			re, err := regexp.Compile(t[7:])
 			if err != nil {
 				return err
 			}
 			if !re.Match([]byte(s)) {
 				return errors.New("value doesn't match required pattern")
+			}
+		} else if strings.HasPrefix(t, "oneof ") && len(t) > 6 {
+			validVals := strings.Split(t[6:], "|")
+			found := false
+			for _, v := range validVals {
+				if s == v {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return errors.New("value must be one of " + t[6:])
 			}
 		}
 	}

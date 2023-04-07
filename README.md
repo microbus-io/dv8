@@ -11,21 +11,23 @@ type Person struct {
     First   string `dv8:"required,len<=32"`
     Last    string `dv8:"required,len<=32"`
     Age     int    `dv8:"val>=0,val<=120"`
-    State   string `dv8:"len==2,toupper,default=CA"`
+    State   string `dv8:"len==2,default=CA,toupper"`
     Zip     string `dv8:"required,regexp ^[0-9]{5}$"`
+    Country string `dv8:"required,len==2,oneof US|MX,default=US,toupper"`
 }
 
 p := &Person{
-    First: "Jane",
-    Last:  "Simmons",
-    State: "",        // Set default to "CA"
-    Age:   200,       // Detect bad data
-    Zip:   " 12345",  // Trim whitespaces
+    First:   " Julie",   // Trim whitespaces
+    Last:    "Supercalifragilisticexpialidocious", // Too long
+    State:   "",        // Set default to "CA"
+    Age:     200,       // Detect bad data
+    Zip:     "12x45",   // Enforce a regexp pattern
+    Country: "USA",     // Check against set of valid values
 }
 
 err := dv8.Validate(p)
 if err != nil {
-    return err // Age: must be less than or equal to 120
+    return err
 }
 ```
 
@@ -41,6 +43,7 @@ if err != nil {
 |`val` with `==` or `!=`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`|Enforces an equality constraint on the value|
 |`val` with `<=`, `<`, `>=` or `>`|`string`, `int`, `float`, `time.Time`, `time.Duration`|Enforces an ordering constraint on the value|
 |`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`string`|Enforces a constraint on the length of the string (in runes, not bytes)
+|`oneof`|`string`|Check against a set of valid values separated by a `\|`|
 |`arrlen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`[]any`|Enforces a constraint on the length of the array. A `nil` array will fail the condition `arrlen>=0`|
 |`maplen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`|Enforces a constraint on the length of the map. A `nil` map will fail the condition `maplen>=0`|
 |`regexp`|`string`|Requires the string to match a regular expression|

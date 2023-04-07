@@ -23,30 +23,51 @@ import (
 func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	switch refType.String() {
 	case "time.Duration":
-		return validateDuration(refVal, tags)
+		err = validateDuration(refVal, tags)
 	case "time.Time":
-		return validateTime(refVal, tags)
+		err = validateTime(refVal, tags)
+	default:
+		switch refType.Kind() {
+		case reflect.String:
+			err = validateString(refVal, tags)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			err = validateInt(refVal, tags)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			err = validateUint(refVal, tags)
+		case reflect.Float32, reflect.Float64:
+			err = validateFloat(refVal, tags)
+		case reflect.Bool:
+			err = validateBool(refVal, tags)
+		case reflect.Pointer:
+			err = validatePointer(refType, refVal, tags)
+		case reflect.Struct:
+			err = validateStruct(refType, refVal, tags)
+		case reflect.Map:
+			err = validateMap(refType, refVal, tags)
+		case reflect.Array, reflect.Slice:
+			err = validateArray(refType, refVal, tags)
+		}
+	}
+	if err != nil {
+		return err
 	}
 
-	switch refType.Kind() {
-	case reflect.String:
-		return validateString(refVal, tags)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return validateInt(refVal, tags)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return validateUint(refVal, tags)
-	case reflect.Float32, reflect.Float64:
-		return validateFloat(refVal, tags)
-	case reflect.Bool:
-		return validateBool(refVal, tags)
-	case reflect.Pointer:
-		return validatePointer(refType, refVal, tags)
-	case reflect.Struct:
-		return validateStruct(refType, refVal, tags)
-	case reflect.Map:
-		return validateMap(refType, refVal, tags)
-	case reflect.Array, reflect.Slice:
-		return validateArray(refType, refVal, tags)
+	// Call the type's Validate method, if implemented
+	var ok bool
+	var validator Validator
+	if refVal.CanAddr() {
+		underlyingPtr := refVal.Addr().Interface()
+		validator, ok = underlyingPtr.(Validator)
+	}
+	if !ok {
+		underlying := refVal.Interface()
+		validator, ok = underlying.(Validator)
+	}
+	if ok {
+		err = validator.Validate()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

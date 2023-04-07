@@ -279,7 +279,7 @@ func TestString_Regexp(t *testing.T) {
 		S: " Foo ",
 	}
 	err := Validate(&x)
-	assert.Error(t, err, "pattern")
+	assert.ErrorContains(t, err, "pattern")
 
 	x.S = " FOO "
 	err = Validate(&x)
@@ -294,7 +294,7 @@ func TestString_RegexpBackslash(t *testing.T) {
 		S: "m",
 	}
 	err := Validate(&x)
-	assert.Error(t, err, "pattern")
+	assert.ErrorContains(t, err, "pattern")
 
 	x.S = "."
 	err = Validate(&x)
@@ -332,4 +332,30 @@ func TestString_ToUpper(t *testing.T) {
 	err = Validate(&x)
 	assert.NoError(t, err)
 	assert.Equal(t, "FOO", x.S)
+}
+
+func TestString_OneOf(t *testing.T) {
+	x := struct {
+		S string `dv8:"oneof Sun|Mon|Tue|Wed|Thu|Fri|Sat"`
+	}{
+		S: "Foo",
+	}
+	err := Validate(&x)
+	assert.ErrorContains(t, err, "one of")
+
+	x.S = "Mon"
+	err = Validate(&x)
+	assert.NoError(t, err)
+
+	x.S = ""
+	err = Validate(&x)
+	assert.ErrorContains(t, err, "one of")
+
+	y := struct {
+		S string `dv8:"oneof |A|B|C"`
+	}{
+		S: "",
+	}
+	err = Validate(&y)
+	assert.NoError(t, err)
 }
