@@ -17,12 +17,12 @@ type Person struct {
 }
 
 p := &Person{
-    First:   " Julie",   // Trim whitespaces
-    Last:    "Supercalifragilisticexpialidocious", // Too long
+    First:   " Julie",  // Trim whitespaces
+    Last:    "Supercalifragilisticexpialidocious", // Enforce length limits
     State:   "",        // Set default to "CA"
-    Age:     200,       // Detect bad data
+    Age:     200,       // Enforce value constraints
     Zip:     "12x45",   // Enforce a regexp pattern
-    Country: "USA",     // Check against set of valid values
+    Country: "USA",     // Check against a set of valid values
 }
 
 err := dv8.Validate(p)
