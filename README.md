@@ -17,7 +17,7 @@ type Person struct {
 }
 
 p := &Person{
-    First:   " Julie",   // Trim whitespaces
+    First:   " Julie",  // Trim whitespaces
     Last:    "Supercalifragilisticexpialidocious", // Too long
     State:   "",        // Set default to "CA"
     Age:     200,       // Detect bad data
@@ -38,14 +38,14 @@ if err != nil {
 |Directive|Applicable types|Effect|
 |---|---|---|
 |`required`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`, `struct`|Requires a non-zero value to be provided|
-|`required`|`*any`|Requires a non-`nil` value to be provided|
+|`required`|`*any`, `[]any`, `map[any]any`|Requires a non-`nil` value to be provided|
 |`default`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`|Sets a default value when the zero-value is provided|
 |`val` with `==` or `!=`|`string`, `int`, `float`, `bool`, `time.Time`, `time.Duration`|Enforces an equality constraint on the value|
 |`val` with `<=`, `<`, `>=` or `>`|`string`, `int`, `float`, `time.Time`, `time.Duration`|Enforces an ordering constraint on the value|
 |`len` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`string`|Enforces a constraint on the length of the string (in runes, not bytes)
 |`oneof`|`string`|Check against a set of valid values separated by a `\|`|
-|`arrlen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`[]any`|Enforces a constraint on the length of the array. A `nil` array will fail the condition `arrlen>=0`|
-|`maplen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`|Enforces a constraint on the length of the map. A `nil` map will fail the condition `maplen>=0`|
+|`arrlen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`[]any`|Enforces a constraint on the length of the array. A `nil` array will fail the condition `arrlen>=0`. Use `required` to check for `nil`|
+|`maplen` with `==`, `!=`, `<=`, `<`, `>=` or `>`|`map[any]any`|Enforces a constraint on the length of the map. A `nil` map will fail the condition `maplen>=0`. Use `required` to check for `nil`|
 |`regexp`|`string`|Requires the string to match a regular expression|
 |`on`|`struct`, `*struct`|Applies the directives on the named field of the struct instead of the struct itself (see below)|
 |`main`|`any`|Applies the directives set on the parent struct to the field (see below)|
@@ -56,7 +56,7 @@ if err != nil {
 
 ## `on` and `main`
 
-The `on` directive allows pushing directives one level down into a nested struct. It can be useful when the nested struct is not under your control.
+The `on` directive allows pushing directives one level down into a nested field of a struct. It can be useful when the struct definition is not under your control and you cannot add field tags to it. You can push validation on only one of the fields. In more complex situations, a custom `Validator` or `ValidatorContext` interface is needed.
 
 ```go
 type Timestamp struct {
@@ -165,6 +165,8 @@ func (r *Rect) Validate() error {
     }
 }
 ```
+
+A similar interface `ValidatorContext` supports custom validation with `ValidateContext(ctx context.Context)`.
 
 ## `DV8`, so your data doesn't!
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,8 @@ limitations under the License.
 package dv8
 
 import (
+	"context"
+
 	"github.com/microbus-io/dv8/internal"
 )
 
@@ -57,8 +59,22 @@ func Validate(data ...any) error {
 	return nil
 }
 
+// ValidateContext is the same as Validate but takes in a context that is used to validate structs
+// that implement the ValidatorContext interface.
+func ValidateContext(ctx context.Context, data ...any) error {
+	for i := range data {
+		err := internal.ValidateContext(ctx, data[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Validator implements a single method that returns an error if a struct is invalid.
 // DV8 calls this function during validation on types that implements it.
-type Validator interface {
-	Validate() error
-}
+type Validator = internal.Validator
+
+// ValidatorContext implements a single method that returns an error if a struct is invalid.
+// DV8 calls this function during validation on types that implements it.
+type ValidatorContext = internal.ValidatorContext

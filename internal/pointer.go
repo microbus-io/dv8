@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,17 +16,18 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"errors"
 	"reflect"
 )
 
 // validatePointer validates the value of a pointer against the tags.
-func validatePointer(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func validatePointer(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	if refVal.IsNil() {
 		if tagsContain(tags, "required") {
 			return errors.New("value is required")
 		}
 		return nil
 	}
-	return validateAny(refType.Elem(), refVal.Elem(), tags)
+	return validateAny(ctx, refType.Elem(), refVal.Elem(), tags)
 }

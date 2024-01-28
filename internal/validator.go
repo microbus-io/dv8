@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"reflect"
 )
 
@@ -23,11 +24,24 @@ import (
 // and validates each of its fields against their dv8 field tags.
 // It recurses into nested structs.
 func Validate(data any) error {
-	return validateAny(reflect.TypeOf(data), reflect.ValueOf(data), nil)
+	return validateAny(context.Background(), reflect.TypeOf(data), reflect.ValueOf(data), nil)
+}
+
+// ValidateContext takes in a reference to a data struct (pointer, map of, slice of)
+// and validates each of its fields against their dv8 field tags.
+// It recurses into nested structs.
+func ValidateContext(ctx context.Context, data any) error {
+	return validateAny(ctx, reflect.TypeOf(data), reflect.ValueOf(data), nil)
 }
 
 // Validator implements a single method that returns an error if a struct is invalid.
 // DV8 calls this function during validation on types that implements it.
 type Validator interface {
 	Validate() error
+}
+
+// ValidatorContext implements a single method that returns an error if a struct is invalid.
+// DV8 calls this function during validation on types that implements it.
+type ValidatorContext interface {
+	ValidateContext(ctx context.Context) error
 }

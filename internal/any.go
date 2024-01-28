@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,11 +16,12 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"reflect"
 )
 
 // validateAny validates the value of any type against the tags.
-func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func validateAny(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	switch refType.String() {
 	case "time.Duration":
 		err = validateDuration(refVal, tags)
@@ -39,13 +40,13 @@ func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err
 		case reflect.Bool:
 			err = validateBool(refVal, tags)
 		case reflect.Pointer:
-			err = validatePointer(refType, refVal, tags)
+			err = validatePointer(ctx, refType, refVal, tags)
 		case reflect.Struct:
-			err = validateStruct(refType, refVal, tags)
+			err = validateStruct(ctx, refType, refVal, tags)
 		case reflect.Map:
-			err = validateMap(refType, refVal, tags)
+			err = validateMap(ctx, refType, refVal, tags)
 		case reflect.Array, reflect.Slice:
-			err = validateArray(refType, refVal, tags)
+			err = validateArray(ctx, refType, refVal, tags)
 		}
 	}
 	if err != nil {
@@ -54,17 +55,27 @@ func validateAny(refType reflect.Type, refVal reflect.Value, tags []string) (err
 
 	// Call the type's Validate method, if implemented
 	var ok bool
+	var okCtx bool
 	var validator Validator
+	var validatorCtx ValidatorContext
 	if refVal.CanAddr() {
 		underlyingPtr := refVal.Addr().Interface()
 		validator, ok = underlyingPtr.(Validator)
+		validatorCtx, okCtx = underlyingPtr.(ValidatorContext)
 	}
 	if !ok {
 		underlying := refVal.Interface()
 		validator, ok = underlying.(Validator)
+		validatorCtx, okCtx = underlying.(ValidatorContext)
 	}
 	if ok {
 		err = validator.Validate()
+		if err != nil {
+			return err
+		}
+	}
+	if okCtx {
+		err = validatorCtx.ValidateContext(ctx)
 		if err != nil {
 			return err
 		}

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -23,7 +24,7 @@ import (
 )
 
 // validateStruct takes in a data struct and validates each of its fields given their dv8 field tags.
-func validateStruct(refType reflect.Type, refVal reflect.Value, structTags []string) (err error) {
+func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Value, structTags []string) (err error) {
 	if tagsContain(structTags, "required") {
 		zero := reflect.Zero(refType)
 		if reflect.DeepEqual(zero.Interface(), refVal.Interface()) {
@@ -37,7 +38,7 @@ func validateStruct(refType reflect.Type, refVal reflect.Value, structTags []str
 			if ok {
 				rt := fld.Type
 				rv := refVal.FieldByName(t[3:])
-				err = validateAny(rt, rv, structTags)
+				err = validateAny(ctx, rt, rv, structTags)
 				if err != nil {
 					return err
 				}
@@ -59,12 +60,12 @@ func validateStruct(refType reflect.Type, refVal reflect.Value, structTags []str
 		rv := refVal.Field(i)
 		// Main fields run validations of the parent struct too
 		if tagsContain(fldTags, "main") {
-			err = validateAny(rt, rv, structTags)
+			err = validateAny(ctx, rt, rv, structTags)
 			if err != nil {
 				return fmt.Errorf("%s: %w", fld.Name, err)
 			}
 		}
-		err = validateAny(rt, rv, fldTags)
+		err = validateAny(ctx, rt, rv, fldTags)
 		if err != nil {
 			return fmt.Errorf("%s: %w", fld.Name, err)
 		}

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,10 +16,14 @@ limitations under the License.
 package internal
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+var ctxValueKey = struct{}{}
 
 type Person struct {
 	Name string `dv8:"required"`
@@ -27,8 +31,30 @@ type Person struct {
 	Age  int    `dv8:"val>=18"`
 }
 
+func (p Person) Validate() error {
+	if p.Name == "Fail Validate" {
+		return errors.New("Validate")
+	}
+	return nil
+}
+
+func (p Person) ValidateContext(ctx context.Context) error {
+	if ctx.Value(ctxValueKey) != nil {
+		return errors.New("ValidateContext")
+	}
+	if p.Name == "Fail ValidateContext" {
+		return errors.New("ValidateContext")
+	}
+	return nil
+}
+
 type Directory struct {
 	Persons []*Person `dv8:"arrlen>0"`
+}
+
+type Animal struct {
+	Name string `dv8:"required"`
+	Kind string `dv8:"default=Mammal"`
 }
 
 func Test_Directory(t *testing.T) {
@@ -97,12 +123,54 @@ func Test_Directory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_ReferenceTypes(t *testing.T) {
-	type Animal struct {
-		Name string `dv8:"required"`
-		Kind string `dv8:"default=Mammal"`
+func Test_ValidatorInterface(t *testing.T) {
+	// OK case
+	p := Person{
+		Name: "Saul Goodman",
+		Zip:  "12345",
+		Age:  18,
 	}
+	err := Validate(p)
+	assert.NoError(t, err)
+	err = ValidateContext(context.Background(), p)
+	assert.NoError(t, err)
 
+	// Fail Validate
+	p = Person{
+		Name: "Fail Validate",
+		Zip:  "12345",
+		Age:  18,
+	}
+	err = Validate(p)
+	assert.Error(t, err)
+	err = ValidateContext(context.Background(), p)
+	assert.Error(t, err)
+
+	// Fail ValidateContext
+	p = Person{
+		Name: "Fail ValidateContext",
+		Zip:  "12345",
+		Age:  18,
+	}
+	err = Validate(p)
+	assert.Error(t, err)
+	err = ValidateContext(context.Background(), p)
+	assert.Error(t, err)
+
+	// Custom context
+	p = Person{
+		Name: "Saul Goodman",
+		Zip:  "12345",
+		Age:  18,
+	}
+	failCtx := context.WithValue(context.Background(), ctxValueKey, "fail")
+	err = Validate(p)
+	assert.NoError(t, err) // Doesn't fail because using context.Background
+	err = ValidateContext(failCtx, p)
+	assert.Error(t, err) // Fails with failCtx
+}
+
+func Test_ReferenceTypes(t *testing.T) {
 	p := Animal{
 		Name: "Zebra",
 	}

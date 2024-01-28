@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -24,7 +25,7 @@ import (
 )
 
 // validateArray validates the value of an array against the tags.
-func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	// Length
 	for i, t := range tags {
 		if strings.HasPrefix(t, "arrlen") && len(t) > 7 {
@@ -70,7 +71,7 @@ func validateArray(refType reflect.Type, refVal reflect.Value, tags []string) (e
 	arrayType := refType.Elem()
 	for j := 0; j < refVal.Len(); j++ {
 		val := refVal.Index(j)
-		err = validateAny(arrayType, val, tags)
+		err = validateAny(ctx, arrayType, val, tags)
 		if err != nil {
 			return fmt.Errorf("[%d]: %w", j, err)
 		}

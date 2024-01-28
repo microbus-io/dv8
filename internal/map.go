@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Microbus LLC and various contributors
+Copyright 2023-2024 Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,7 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -24,7 +25,7 @@ import (
 )
 
 // validateMap validates the value of a map against the tags.
-func validateMap(refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	// Length
 	for i, t := range tags {
 		if strings.HasPrefix(t, "maplen") && len(t) > 7 {
@@ -76,7 +77,7 @@ func validateMap(refType reflect.Type, refVal reflect.Value, tags []string) (err
 			val = reflect.New(mapType).Elem()
 			val.Set(iter.Value())
 		}
-		err = validateAny(mapType, val, tags)
+		err = validateAny(ctx, mapType, val, tags)
 		if err != nil {
 			return fmt.Errorf("[%v]: %w", iter.Key(), err)
 		}
