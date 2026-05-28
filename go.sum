@@ -3,6 +3,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/microbus-io/copyrighter v0.1.9 h1:faZhx2RPLOBBeTN808dOB1i3IxwKEBY6XxTsGOvdk/M=
 github.com/microbus-io/copyrighter v0.1.9/go.mod h1:gFMq4tn8eFrL9m4Ow9vF0BBKx5OIY89b5Q8zjkMUZq0=
+github.com/microbus-io/copyrighter v1.3.0 h1:daf2MxCSo12qSJsrPfv7VTgj4oMLssBKuBeoemUTbBg=
+github.com/microbus-io/copyrighter v1.3.0/go.mod h1:gFMq4tn8eFrL9m4Ow9vF0BBKx5OIY89b5Q8zjkMUZq0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

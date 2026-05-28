@@ -3,7 +3,7 @@ module github.com/microbus-io/dv8
 go 1.19
 
 require (
-	github.com/microbus-io/copyrighter v0.1.9
+	github.com/microbus-io/copyrighter v1.3.0
 	github.com/stretchr/testify v1.8.1
 )
 

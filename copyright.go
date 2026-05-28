@@ -1,5 +1,5 @@
 /*
-Copyright 2023-2024 Microbus LLC and various contributors
+Copyright 2023-yyyy Microbus LLC and various contributors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:generate go run github.com/microbus-io/copyrighter -r
+//go:generate go run github.com/microbus-io/copyrighter
 
 package dv8
 
