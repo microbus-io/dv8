@@ -85,6 +85,15 @@ func Compile(types ...any) error {
 	return nil
 }
 
+// Directive is one parsed directive of a dv8 struct tag.
+type Directive = internal.Directive
+
+// ParseTag parses the value of a dv8 struct tag into its directives, without checking their validity.
+// It enables tooling, such as an OpenAPI generator, to project the directives onto other formats.
+func ParseTag(tag string) []Directive {
+	return internal.ParseTag(tag)
+}
+
 // Validator implements a single method that returns an error if a struct is invalid.
 // DV8 calls this method during validation on any type in the object graph that implements it,
 // passing the context given to dv8.Validate.
