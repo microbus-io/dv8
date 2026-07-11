@@ -17,11 +17,12 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateArray validates the value of an array against the tags.
@@ -37,7 +38,7 @@ func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Val
 			return fmt.Errorf("%w: 'key' applies only to maps", ErrDirective)
 		}
 		if t == "notzero" && refType.Kind() == reflect.Slice && refVal.IsNil() {
-			return errors.New("value is required")
+			return errInvalid("value is required")
 		}
 		if strings.HasPrefix(t, "len") && len(t) > 4 {
 			// Example: len<8
@@ -55,17 +56,17 @@ func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Val
 			arrayLen := refVal.Len()
 			switch {
 			case operator == "<=" && arrayLen > l:
-				err = fmt.Errorf("length must be less than or equal to %d", l)
+				err = errInvalid("length must be less than or equal to %d", l)
 			case operator == "<" && arrayLen >= l:
-				err = fmt.Errorf("length must be less than %d", l)
+				err = errInvalid("length must be less than %d", l)
 			case operator == ">=" && arrayLen < l:
-				err = fmt.Errorf("length must be greater than or equal to %d", l)
+				err = errInvalid("length must be greater than or equal to %d", l)
 			case operator == ">" && arrayLen <= l:
-				err = fmt.Errorf("length must be greater than %d", l)
+				err = errInvalid("length must be greater than %d", l)
 			case operator == "!=" && arrayLen == l:
-				err = fmt.Errorf("length must not equal %d", l)
+				err = errInvalid("length must not equal %d", l)
 			case operator == "==" && arrayLen != l:
-				err = fmt.Errorf("length must equal %d", l)
+				err = errInvalid("length must equal %d", l)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
@@ -80,7 +81,7 @@ func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Val
 		val := refVal.Index(j)
 		err = validateAny(ctx, arrayType, val, eachTags)
 		if err != nil {
-			return fmt.Errorf("[%d]: %w", j, err)
+			return errors.New("[%d]", j, err)
 		}
 	}
 	return nil

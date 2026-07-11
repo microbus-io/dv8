@@ -16,13 +16,14 @@ limitations under the License.
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/microbus-io/errors"
 )
 
 var (
@@ -86,7 +87,7 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 		refVal.SetString(s)
 	}
 	if s == "" && required {
-		return errors.New("value is required")
+		return errInvalid("value is required")
 	}
 	// Other constraints
 	for _, t := range tags {
@@ -106,17 +107,17 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 			strLen := len([]rune(s))
 			switch {
 			case operator == "<=" && strLen > l:
-				err = fmt.Errorf("length must be less than or equal to %d", l)
+				err = errInvalid("length must be less than or equal to %d", l)
 			case operator == "<" && strLen >= l:
-				err = fmt.Errorf("length must be less than %d", l)
+				err = errInvalid("length must be less than %d", l)
 			case operator == ">=" && strLen < l:
-				err = fmt.Errorf("length must be greater than or equal to %d", l)
+				err = errInvalid("length must be greater than or equal to %d", l)
 			case operator == ">" && strLen <= l:
-				err = fmt.Errorf("length must be greater than %d", l)
+				err = errInvalid("length must be greater than %d", l)
 			case operator == "!=" && strLen == l:
-				err = fmt.Errorf("length must not equal %d", l)
+				err = errInvalid("length must not equal %d", l)
 			case operator == "==" && strLen != l:
-				err = fmt.Errorf("length must equal %d", l)
+				err = errInvalid("length must equal %d", l)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
@@ -138,17 +139,17 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 			}
 			switch {
 			case operator == "<=" && s > v:
-				err = fmt.Errorf("must be less than or equal to '%s'", v)
+				err = errInvalid("must be less than or equal to '%s'", v)
 			case operator == "<" && s >= v:
-				err = fmt.Errorf("must be less than '%s'", v)
+				err = errInvalid("must be less than '%s'", v)
 			case operator == ">=" && s < v:
-				err = fmt.Errorf("must be greater than or equal to '%s'", v)
+				err = errInvalid("must be greater than or equal to '%s'", v)
 			case operator == ">" && s <= v:
-				err = fmt.Errorf("must be greater than '%s'", v)
+				err = errInvalid("must be greater than '%s'", v)
 			case operator == "!=" && s == v:
-				err = fmt.Errorf("must not equal '%s'", v)
+				err = errInvalid("must not equal '%s'", v)
 			case operator == "==" && s != v:
-				err = fmt.Errorf("must equal '%s'", v)
+				err = errInvalid("must equal '%s'", v)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
@@ -161,7 +162,7 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 				return err
 			}
 			if !re.Match([]byte(s)) {
-				return errors.New("value doesn't match required pattern")
+				return errInvalid("value doesn't match required pattern")
 			}
 		} else if strings.HasPrefix(t, "oneof ") && len(t) > 6 {
 			validVals := strings.Split(t[6:], "|")
@@ -173,7 +174,7 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 				}
 			}
 			if !found {
-				return errors.New("value must be one of " + t[6:])
+				return errInvalid("value must be one of %s", t[6:])
 			}
 		}
 	}

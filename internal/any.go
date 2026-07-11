@@ -17,7 +17,10 @@ package internal
 
 import (
 	"context"
+	"net/http"
 	"reflect"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateAny validates the value of any type against the tags.
@@ -68,6 +71,10 @@ func validateAny(ctx context.Context, refType reflect.Type, refVal reflect.Value
 		err = v.Validate()
 	}
 	if err != nil {
+		// A validation failure is attributed to the input data unless the validator chose otherwise
+		if errors.StatusCode(err) == http.StatusInternalServerError {
+			err = errors.Trace(err, http.StatusBadRequest)
+		}
 		return err
 	}
 

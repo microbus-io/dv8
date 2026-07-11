@@ -189,6 +189,16 @@ func (r *Rect) Validate(ctx context.Context) error {
 A parameterless `Validate() error` method is honored as a fallback, enabling interop with types that were
 not written for `DV8`. Both variants share the method name `Validate`, so a type can implement at most one of them.
 
+## Error attribution
+
+Validation errors are created with the [`microbus-io/errors`](https://github.com/microbus-io/errors) package and
+carry an HTTP status code alongside a stack trace. A violation of the data (a failed directive, a custom
+`Validate` rejection) is stamped `400 Bad Request`; a malformed directive (a bug in the tags, not the input) is
+`500 Internal Server Error`. A custom `Validate` method may choose a different attribution by returning an error
+carrying any non-500 status code (e.g. `errors.New("forbidden", http.StatusForbidden)`), which is respected.
+Callers that route errors to HTTP responses can therefore propagate them as-is; `errors.StatusCode(err)` reads
+the code back.
+
 ## Strict directives and `Compile`
 
 Directives are compiled and strictly checked once per type, on first use. A typo (`requird`), a directive that

@@ -17,11 +17,12 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateMap validates the value of a map against the tags.
@@ -41,7 +42,7 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 			continue
 		}
 		if t == "notzero" && refVal.IsNil() {
-			return errors.New("value is required")
+			return errInvalid("value is required")
 		}
 		if strings.HasPrefix(t, "len") && len(t) > 4 {
 			// Example: len<8
@@ -59,17 +60,17 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 			mapLen := refVal.Len()
 			switch {
 			case operator == "<=" && mapLen > l:
-				err = fmt.Errorf("length must be less than or equal to %d", l)
+				err = errInvalid("length must be less than or equal to %d", l)
 			case operator == "<" && mapLen >= l:
-				err = fmt.Errorf("length must be less than %d", l)
+				err = errInvalid("length must be less than %d", l)
 			case operator == ">=" && mapLen < l:
-				err = fmt.Errorf("length must be greater than or equal to %d", l)
+				err = errInvalid("length must be greater than or equal to %d", l)
 			case operator == ">" && mapLen <= l:
-				err = fmt.Errorf("length must be greater than %d", l)
+				err = errInvalid("length must be greater than %d", l)
 			case operator == "!=" && mapLen == l:
-				err = fmt.Errorf("length must not equal %d", l)
+				err = errInvalid("length must not equal %d", l)
 			case operator == "==" && mapLen != l:
-				err = fmt.Errorf("length must equal %d", l)
+				err = errInvalid("length must equal %d", l)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
@@ -93,7 +94,7 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 			}
 			err = validateAny(ctx, keyType, key, keyTags)
 			if err != nil {
-				return fmt.Errorf("[%v] key: %w", iter.Key(), err)
+				return errors.New("[%v] key", iter.Key(), err)
 			}
 			if refVal.CanSet() && !key.Equal(iter.Key()) {
 				renamedKeys = append(renamedKeys, [2]reflect.Value{iter.Key(), key})
@@ -107,7 +108,7 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 		}
 		err = validateAny(ctx, mapType, val, eachTags)
 		if err != nil {
-			return fmt.Errorf("[%v]: %w", iter.Key(), err)
+			return errors.New("[%v]", iter.Key(), err)
 		}
 		if refVal.CanSet() {
 			refVal.SetMapIndex(iter.Key(), val)
@@ -118,7 +119,7 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 		val := refVal.MapIndex(r[0])
 		refVal.SetMapIndex(r[0], reflect.Value{})
 		if refVal.MapIndex(r[1]).IsValid() {
-			return fmt.Errorf("[%v] key: [%v] already exists", r[0], r[1])
+			return errInvalid("[%v] key: [%v] already exists", r[0], r[1])
 		}
 		refVal.SetMapIndex(r[1], val)
 	}

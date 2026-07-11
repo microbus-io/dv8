@@ -16,11 +16,12 @@ limitations under the License.
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateUint validates the value of an unsigned integer against the tags.
@@ -50,7 +51,7 @@ func validateUint(refVal reflect.Value, tags []string) (err error) {
 		refVal.SetUint(i)
 	}
 	if i == 0 && required {
-		return errors.New("non-zero value is required")
+		return errInvalid("non-zero value is required")
 	}
 	// Range constraints
 	for _, t := range tags {
@@ -69,17 +70,17 @@ func validateUint(refVal reflect.Value, tags []string) (err error) {
 			}
 			switch {
 			case operator == "<=" && i > v:
-				err = fmt.Errorf("must be less than or equal to %d", v)
+				err = errInvalid("must be less than or equal to %d", v)
 			case operator == "<" && i >= v:
-				err = fmt.Errorf("must be less than %d", v)
+				err = errInvalid("must be less than %d", v)
 			case operator == ">=" && i < v:
-				err = fmt.Errorf("must be greater than or equal to %d", v)
+				err = errInvalid("must be greater than or equal to %d", v)
 			case operator == ">" && i <= v:
-				err = fmt.Errorf("must be greater than %d", v)
+				err = errInvalid("must be greater than %d", v)
 			case operator == "!=" && i == v:
-				err = fmt.Errorf("must not equal %d", v)
+				err = errInvalid("must not equal %d", v)
 			case operator == "==" && i != v:
-				err = fmt.Errorf("must equal %d", v)
+				err = errInvalid("must equal %d", v)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}

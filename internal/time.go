@@ -16,11 +16,12 @@ limitations under the License.
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateTime validates the value of a time against the tags.
@@ -50,7 +51,7 @@ func validateTime(refVal reflect.Value, tags []string) (err error) {
 		refVal.Set(reflect.ValueOf(i))
 	}
 	if i.IsZero() && required {
-		return errors.New("non-zero value is required")
+		return errInvalid("non-zero value is required")
 	}
 	// Range constraints
 	for _, t := range tags {
@@ -69,17 +70,17 @@ func validateTime(refVal reflect.Value, tags []string) (err error) {
 			}
 			switch {
 			case operator == "<=" && i.After(v):
-				err = fmt.Errorf("must be earlier than or equal to %v", v)
+				err = errInvalid("must be earlier than or equal to %v", v)
 			case operator == "<" && !i.Before(v):
-				err = fmt.Errorf("must be earlier than %v", v)
+				err = errInvalid("must be earlier than %v", v)
 			case operator == ">=" && i.Before(v):
-				err = fmt.Errorf("must be later than or equal to %v", v)
+				err = errInvalid("must be later than or equal to %v", v)
 			case operator == ">" && !i.After(v):
-				err = fmt.Errorf("must be later than %v", v)
+				err = errInvalid("must be later than %v", v)
 			case operator == "!=" && i.Equal(v):
-				err = fmt.Errorf("must not equal %v", v)
+				err = errInvalid("must not equal %v", v)
 			case operator == "==" && !i.Equal(v):
-				err = fmt.Errorf("must equal %v", v)
+				err = errInvalid("must equal %v", v)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}

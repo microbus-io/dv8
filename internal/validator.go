@@ -17,8 +17,16 @@ package internal
 
 import (
 	"context"
+	"net/http"
 	"reflect"
+
+	"github.com/microbus-io/errors"
 )
+
+// errInvalid creates a validation error attributed to the input data, with a 400 status code.
+func errInvalid(pattern string, args ...any) error {
+	return errors.New(pattern, append(args, http.StatusBadRequest)...)
+}
 
 // Validate takes in a reference to a data struct (pointer, map of, slice of)
 // and validates each of its fields against their dv8 field tags.

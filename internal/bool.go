@@ -16,11 +16,12 @@ limitations under the License.
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateBool validates the value of a boolean against the tags.
@@ -50,7 +51,7 @@ func validateBool(refVal reflect.Value, tags []string) (err error) {
 		refVal.SetBool(b)
 	}
 	if !b && required {
-		return errors.New("non-zero value is required")
+		return errInvalid("non-zero value is required")
 	}
 	for _, t := range tags {
 		if strings.HasPrefix(t, "val") && len(t) > 4 {
@@ -68,9 +69,9 @@ func validateBool(refVal reflect.Value, tags []string) (err error) {
 			}
 			switch {
 			case operator == "!=" && b == v:
-				err = fmt.Errorf("must not equal %v", v)
+				err = errInvalid("must not equal %v", v)
 			case operator == "==" && b != v:
-				err = fmt.Errorf("must equal %v", v)
+				err = errInvalid("must equal %v", v)
 			case operator != "!=" && operator != "==":
 				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}

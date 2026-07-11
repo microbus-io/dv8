@@ -17,10 +17,10 @@ package internal
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/microbus-io/errors"
 )
 
 // validateStruct takes in a data struct and validates each of its fields given their dv8 field tags.
@@ -28,7 +28,7 @@ func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Va
 	if tagsContain(structTags, "notzero") {
 		zero := reflect.Zero(refType)
 		if reflect.DeepEqual(zero.Interface(), refVal.Interface()) {
-			return errors.New("value is required")
+			return errInvalid("value is required")
 		}
 	}
 	// On runs the validation on a nested field
@@ -62,12 +62,12 @@ func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Va
 		if tagsContain(fldTags, "delegate") {
 			err = validateAny(ctx, rt, rv, structTags)
 			if err != nil {
-				return fmt.Errorf("%s: %w", fld.Name, err)
+				return errors.New("%s", fld.Name, err)
 			}
 		}
 		err = validateAny(ctx, rt, rv, fldTags)
 		if err != nil {
-			return fmt.Errorf("%s: %w", fld.Name, err)
+			return errors.New("%s", fld.Name, err)
 		}
 	}
 	return nil

@@ -17,7 +17,6 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"reflect"
 )
 
@@ -25,7 +24,7 @@ import (
 func validatePointer(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	if refVal.IsNil() {
 		if tagsContain(tags, "notzero") {
-			return errors.New("value is required")
+			return errInvalid("value is required")
 		}
 		return nil
 	}
