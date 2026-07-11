@@ -23,26 +23,34 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateStruct takes in a data struct and validates each of its fields given their dv8 field tags.
-func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Value, structTags []string) (err error) {
-	if tagsContain(structTags, "notzero") {
-		zero := reflect.Zero(refType)
-		if reflect.DeepEqual(zero.Interface(), refVal.Interface()) {
-			return errInvalid("value is required")
-		}
+// compileStruct compiles the validation of a struct against the incoming tags
+// and the dv8 field tags of each of its fields.
+func compileStruct(refType reflect.Type, tags []string, memo map[planKey]*plan) []step {
+	var steps []step
+	if tagsContain(tags, "notzero") {
+		zero := reflect.Zero(refType).Interface()
+		steps = append(steps, func(_ context.Context, refVal reflect.Value) error {
+			if reflect.DeepEqual(zero, refVal.Interface()) {
+				return errInvalid("value is required")
+			}
+			return nil
+		})
 	}
 	// On runs the validation on a nested field
-	for _, t := range structTags {
+	for _, t := range tags {
 		if strings.HasPrefix(t, "on ") {
 			fld, ok := refType.FieldByName(t[3:])
-			if ok {
-				rt := fld.Type
-				rv := refVal.FieldByName(t[3:])
-				err = validateAny(ctx, rt, rv, structTags)
-				if err != nil {
-					return err
-				}
+			if !ok {
+				continue
 			}
+			sub := buildPlan(fld.Type, tags, memo)
+			if sub.isEmpty() {
+				continue
+			}
+			index := fld.Index
+			steps = append(steps, func(ctx context.Context, refVal reflect.Value) error {
+				return sub.execute(ctx, refVal.FieldByIndex(index))
+			})
 		}
 	}
 	// Iterate over fields
@@ -56,21 +64,36 @@ func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Va
 		if tagsContain(fldTags, "-") {
 			continue
 		}
-		rt := fld.Type
-		rv := refVal.Field(i)
 		// Delegate fields run validations of the parent struct too
+		var delegate *plan
 		if tagsContain(fldTags, "delegate") {
-			err = validateAny(ctx, rt, rv, structTags)
-			if err != nil {
-				return errors.New("%s", fld.Name, err)
+			delegate = buildPlan(fld.Type, tags, memo)
+			if delegate.isEmpty() {
+				delegate = nil
 			}
 		}
-		err = validateAny(ctx, rt, rv, fldTags)
-		if err != nil {
-			return errors.New("%s", fld.Name, err)
+		fieldPlan := buildPlan(fld.Type, fldTags, memo)
+		if delegate == nil && fieldPlan.isEmpty() {
+			continue
 		}
+		index := i
+		name := fld.Name
+		steps = append(steps, func(ctx context.Context, refVal reflect.Value) error {
+			rv := refVal.Field(index)
+			if delegate != nil {
+				err := delegate.execute(ctx, rv)
+				if err != nil {
+					return errors.New("%s", name, err)
+				}
+			}
+			err := fieldPlan.execute(ctx, rv)
+			if err != nil {
+				return errors.New("%s", name, err)
+			}
+			return nil
+		})
 	}
-	return nil
+	return steps
 }
 
 // splitDirectives splits a dv8 tag on commas. A comma preceded by a backslash is part of the

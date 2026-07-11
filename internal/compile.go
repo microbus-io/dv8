@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -31,26 +30,10 @@ var ErrDirective = errors.New("malformed directive")
 // errNotApplicable is an internal marker that a directive is recognized but not valid for a given type.
 var errNotApplicable = errors.New("not applicable")
 
-var compiledTypes sync.Map // reflect.Type -> error
-
-// Compile validates the dv8 directives declared on a type, recursing into nested types.
-// Errors wrap ErrDirective. The result is cached per type.
+// Compile validates the dv8 directives declared on a type, recursing into nested types,
+// and builds its cached execution plan. Errors wrap ErrDirective. The result is cached per type.
 func Compile(refType reflect.Type) error {
-	if refType == nil {
-		return nil
-	}
-	if cached, ok := compiledTypes.Load(refType); ok {
-		if cached == nil {
-			return nil
-		}
-		return cached.(error)
-	}
-	err := compileType(refType, map[reflect.Type]bool{})
-	if err == nil {
-		compiledTypes.Store(refType, nil)
-	} else {
-		compiledTypes.Store(refType, err)
-	}
+	_, err := planOf(refType)
 	return err
 }
 

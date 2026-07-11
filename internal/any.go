@@ -23,60 +23,99 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateAny validates the value of any type against the tags.
-func validateAny(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+// buildSteps compiles the validation steps of any type against the incoming directives.
+func buildSteps(refType reflect.Type, tags []string, memo map[planKey]*plan) []step {
+	var steps []step
 	switch refType.String() {
 	case "time.Duration":
-		err = validateDuration(refVal, tags)
+		steps = compileDuration(tags)
 	case "time.Time":
-		err = validateTime(refVal, tags)
+		steps = compileTime(tags)
 	default:
 		switch refType.Kind() {
 		case reflect.String:
-			err = validateString(refVal, tags)
+			steps = compileString(tags)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			err = validateInt(refVal, tags)
+			steps = compileInt(tags)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			err = validateUint(refVal, tags)
+			steps = compileUint(tags)
 		case reflect.Float32, reflect.Float64:
-			err = validateFloat(refVal, tags)
+			steps = compileFloat(tags)
 		case reflect.Bool:
-			err = validateBool(refVal, tags)
+			steps = compileBool(tags)
 		case reflect.Pointer:
-			err = validatePointer(ctx, refType, refVal, tags)
+			steps = compilePointer(refType, tags, memo)
 		case reflect.Struct:
-			err = validateStruct(ctx, refType, refVal, tags)
+			steps = compileStruct(refType, tags, memo)
 		case reflect.Map:
-			err = validateMap(ctx, refType, refVal, tags)
+			steps = compileMap(refType, tags, memo)
 		case reflect.Array, reflect.Slice:
-			err = validateArray(ctx, refType, refVal, tags)
+			steps = compileArray(refType, tags, memo)
 		}
 	}
-	if err != nil {
-		return err
-	}
+	steps = append(steps, compileValidatorCall(refType)...)
+	return steps
+}
 
-	// Call the type's Validate method, if implemented.
-	// Both variants share the method name Validate, so a type implements at most one of them.
-	var underlying any
-	if refVal.CanAddr() {
-		underlying = refVal.Addr().Interface()
-	} else {
-		underlying = refVal.Interface()
+var (
+	validatorType          = reflect.TypeOf((*Validator)(nil)).Elem()
+	validatorNoContextType = reflect.TypeOf((*validatorNoContext)(nil)).Elem()
+)
+
+// compileValidatorCall compiles the call to the type's Validate method, if implemented.
+// Both variants share the method name Validate, so a type implements at most one of them.
+func compileValidatorCall(refType reflect.Type) []step {
+	if refType.Kind() == reflect.Interface {
+		// The dynamic type is unknown at compile time
+		return []step{func(ctx context.Context, refVal reflect.Value) error {
+			var underlying any
+			if refVal.CanAddr() {
+				underlying = refVal.Addr().Interface()
+			} else {
+				underlying = refVal.Interface()
+			}
+			var err error
+			switch v := underlying.(type) {
+			case Validator:
+				err = v.Validate(ctx)
+			case validatorNoContext:
+				err = v.Validate()
+			}
+			return attributeValidatorError(err)
+		}}
 	}
-	switch v := underlying.(type) {
-	case Validator:
-		err = v.Validate(ctx)
-	case validatorNoContext:
-		err = v.Validate()
+	ptrType := reflect.PointerTo(refType)
+	ptrCtx := ptrType.Implements(validatorType)
+	ptrNoCtx := !ptrCtx && ptrType.Implements(validatorNoContextType)
+	valCtx := refType.Implements(validatorType)
+	valNoCtx := !valCtx && refType.Implements(validatorNoContextType)
+	if !ptrCtx && !ptrNoCtx && !valCtx && !valNoCtx {
+		return nil
 	}
-	if err != nil {
-		// A validation failure is attributed to the input data unless the validator chose otherwise
-		if errors.StatusCode(err) == http.StatusInternalServerError {
-			err = errors.Trace(err, http.StatusBadRequest)
+	return []step{func(ctx context.Context, refVal reflect.Value) error {
+		var err error
+		if refVal.CanAddr() {
+			if ptrCtx {
+				err = refVal.Addr().Interface().(Validator).Validate(ctx)
+			} else if ptrNoCtx {
+				err = refVal.Addr().Interface().(validatorNoContext).Validate()
+			}
+		} else {
+			if valCtx {
+				err = refVal.Interface().(Validator).Validate(ctx)
+			} else if valNoCtx {
+				err = refVal.Interface().(validatorNoContext).Validate()
+			}
 		}
-		return err
-	}
+		return attributeValidatorError(err)
+	}}
+}
 
-	return nil
+// attributeValidatorError attributes a custom validator's failure to the input data,
+// unless the validator chose a status code of its own.
+func attributeValidatorError(err error) error {
+	if err != nil && errors.StatusCode(err) == http.StatusInternalServerError {
+		err = errors.Trace(err, http.StatusBadRequest)
+	}
+	return err
 }

@@ -17,7 +17,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,64 +24,61 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateArray validates the value of an array against the tags.
+// compileArray compiles the validation of an array or slice against the tags.
 // Unprefixed directives apply to the array itself; "each" directives distribute to its elements.
-func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func compileArray(refType reflect.Type, tags []string, memo map[planKey]*plan) []step {
 	var eachTags []string
+	// Array-level checks run in tag order
+	var checks []func(refVal reflect.Value) error
 	for _, t := range tags {
 		if strings.HasPrefix(t, "each ") {
 			eachTags = append(eachTags, t[len("each "):])
 			continue
 		}
-		if strings.HasPrefix(t, "key ") {
-			return fmt.Errorf("%w: 'key' applies only to maps", ErrDirective)
-		}
-		if t == "notzero" && refType.Kind() == reflect.Slice && refVal.IsNil() {
-			return errInvalid("value is required")
+		if t == "notzero" && refType.Kind() == reflect.Slice {
+			checks = append(checks, func(refVal reflect.Value) error {
+				if refVal.IsNil() {
+					return errInvalid("value is required")
+				}
+				return nil
+			})
 		}
 		if strings.HasPrefix(t, "len") && len(t) > 4 {
-			// Example: len<8
-			operator := t[3:4]
-			var l int
-			if t[4] == '=' {
-				operator += "="
-				l, err = strconv.Atoi(t[5:])
-			} else {
-				l, err = strconv.Atoi(t[4:])
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			arrayLen := refVal.Len()
-			switch {
-			case operator == "<=" && arrayLen > l:
-				err = errInvalid("length must be less than or equal to %d", l)
-			case operator == "<" && arrayLen >= l:
-				err = errInvalid("length must be less than %d", l)
-			case operator == ">=" && arrayLen < l:
-				err = errInvalid("length must be greater than or equal to %d", l)
-			case operator == ">" && arrayLen <= l:
-				err = errInvalid("length must be greater than %d", l)
-			case operator == "!=" && arrayLen == l:
-				err = errInvalid("length must not equal %d", l)
-			case operator == "==" && arrayLen != l:
-				err = errInvalid("length must equal %d", l)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
+			l, err := strconv.Atoi(value)
+			if err != nil {
+				continue
 			}
+			checks = append(checks, compileLenCheck(operator, l))
+		}
+	}
+	elemPlan := buildPlan(refType.Elem(), eachTags, memo)
+	if elemPlan.isEmpty() {
+		elemPlan = nil
+	}
+	if len(checks) == 0 && elemPlan == nil {
+		return nil
+	}
+	return []step{func(ctx context.Context, refVal reflect.Value) error {
+		for _, check := range checks {
+			err := check(refVal)
 			if err != nil {
 				return err
 			}
 		}
-	}
-	// Nested elements
-	arrayType := refType.Elem()
-	for j := 0; j < refVal.Len(); j++ {
-		val := refVal.Index(j)
-		err = validateAny(ctx, arrayType, val, eachTags)
-		if err != nil {
-			return errors.New("[%d]", j, err)
+		if elemPlan == nil {
+			return nil
 		}
-	}
-	return nil
+		// Nested elements
+		for j := 0; j < refVal.Len(); j++ {
+			err := elemPlan.execute(ctx, refVal.Index(j))
+			if err != nil {
+				return errors.New("[%d]", j, err)
+			}
+		}
+		return nil
+	}}
 }

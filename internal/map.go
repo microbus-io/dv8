@@ -17,7 +17,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,13 +24,15 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateMap validates the value of a map against the tags.
+// compileMap compiles the validation of a map against the tags.
 // Unprefixed directives apply to the map itself; "each" directives distribute to its values
 // and "key" directives to its keys. A mutated key is reinserted under its new value;
 // two keys folding into one is an error.
-func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
+func compileMap(refType reflect.Type, tags []string, memo map[planKey]*plan) []step {
 	var eachTags []string
 	var keyTags []string
+	// Map-level checks run in tag order
+	var checks []func(refVal reflect.Value) error
 	for _, t := range tags {
 		if strings.HasPrefix(t, "each ") {
 			eachTags = append(eachTags, t[len("each "):])
@@ -41,87 +42,118 @@ func validateMap(ctx context.Context, refType reflect.Type, refVal reflect.Value
 			keyTags = append(keyTags, t[len("key "):])
 			continue
 		}
-		if t == "notzero" && refVal.IsNil() {
-			return errInvalid("value is required")
+		if t == "notzero" {
+			checks = append(checks, func(refVal reflect.Value) error {
+				if refVal.IsNil() {
+					return errInvalid("value is required")
+				}
+				return nil
+			})
 		}
 		if strings.HasPrefix(t, "len") && len(t) > 4 {
-			// Example: len<8
-			operator := t[3:4]
-			var l int
-			if t[4] == '=' {
-				operator += "="
-				l, err = strconv.Atoi(t[5:])
-			} else {
-				l, err = strconv.Atoi(t[4:])
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			mapLen := refVal.Len()
-			switch {
-			case operator == "<=" && mapLen > l:
-				err = errInvalid("length must be less than or equal to %d", l)
-			case operator == "<" && mapLen >= l:
-				err = errInvalid("length must be less than %d", l)
-			case operator == ">=" && mapLen < l:
-				err = errInvalid("length must be greater than or equal to %d", l)
-			case operator == ">" && mapLen <= l:
-				err = errInvalid("length must be greater than %d", l)
-			case operator == "!=" && mapLen == l:
-				err = errInvalid("length must not equal %d", l)
-			case operator == "==" && mapLen != l:
-				err = errInvalid("length must equal %d", l)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
+			l, err := strconv.Atoi(value)
 			if err != nil {
-				return err
+				continue
 			}
+			checks = append(checks, compileLenCheck(operator, l))
 		}
 	}
-	// Nested elements
 	keyType := refType.Key()
-	mapType := refType.Elem()
-	var renamedKeys [][2]reflect.Value // old, new
-	iter := refVal.MapRange()
-	for iter.Next() {
-		if len(keyTags) > 0 {
-			key := iter.Key()
-			if refVal.CanSet() {
-				// Create an addressable copy of the key
-				key = reflect.New(keyType).Elem()
-				key.Set(iter.Key())
-			}
-			err = validateAny(ctx, keyType, key, keyTags)
+	elemType := refType.Elem()
+	var keyPlan *plan
+	if len(keyTags) > 0 {
+		keyPlan = buildPlan(keyType, keyTags, memo)
+		if keyPlan.isEmpty() {
+			keyPlan = nil
+		}
+	}
+	valPlan := buildPlan(elemType, eachTags, memo)
+	if valPlan.isEmpty() {
+		valPlan = nil
+	}
+	if len(checks) == 0 && keyPlan == nil && valPlan == nil {
+		return nil
+	}
+	return []step{func(ctx context.Context, refVal reflect.Value) error {
+		for _, check := range checks {
+			err := check(refVal)
 			if err != nil {
-				return errors.New("[%v] key", iter.Key(), err)
-			}
-			if refVal.CanSet() && !key.Equal(iter.Key()) {
-				renamedKeys = append(renamedKeys, [2]reflect.Value{iter.Key(), key})
+				return err
 			}
 		}
-		val := iter.Value()
-		if refVal.CanSet() {
-			// Create an addressable copy of the value item
-			val = reflect.New(mapType).Elem()
-			val.Set(iter.Value())
+		if keyPlan == nil && valPlan == nil {
+			return nil
 		}
-		err = validateAny(ctx, mapType, val, eachTags)
-		if err != nil {
-			return errors.New("[%v]", iter.Key(), err)
+		// Nested elements
+		var renamedKeys [][2]reflect.Value // old, new
+		iter := refVal.MapRange()
+		for iter.Next() {
+			if keyPlan != nil {
+				key := iter.Key()
+				if refVal.CanSet() {
+					// Create an addressable copy of the key
+					key = reflect.New(keyType).Elem()
+					key.Set(iter.Key())
+				}
+				err := keyPlan.execute(ctx, key)
+				if err != nil {
+					return errors.New("[%v] key", iter.Key(), err)
+				}
+				if refVal.CanSet() && !key.Equal(iter.Key()) {
+					renamedKeys = append(renamedKeys, [2]reflect.Value{iter.Key(), key})
+				}
+			}
+			if valPlan != nil {
+				val := iter.Value()
+				if refVal.CanSet() {
+					// Create an addressable copy of the value item
+					val = reflect.New(elemType).Elem()
+					val.Set(iter.Value())
+				}
+				err := valPlan.execute(ctx, val)
+				if err != nil {
+					return errors.New("[%v]", iter.Key(), err)
+				}
+				if refVal.CanSet() {
+					refVal.SetMapIndex(iter.Key(), val)
+				}
+			}
 		}
-		if refVal.CanSet() {
-			refVal.SetMapIndex(iter.Key(), val)
+		// Reinsert values under keys mutated by "key" directives
+		for _, r := range renamedKeys {
+			val := refVal.MapIndex(r[0])
+			refVal.SetMapIndex(r[0], reflect.Value{})
+			if refVal.MapIndex(r[1]).IsValid() {
+				return errInvalid("[%v] key: [%v] already exists", r[0], r[1])
+			}
+			refVal.SetMapIndex(r[1], val)
 		}
+		return nil
+	}}
+}
+
+// compileLenCheck compiles a length constraint on a map, array, or slice.
+func compileLenCheck(operator string, l int) func(refVal reflect.Value) error {
+	return func(refVal reflect.Value) error {
+		length := refVal.Len()
+		switch {
+		case operator == "<=" && length > l:
+			return errInvalid("length must be less than or equal to %d", l)
+		case operator == "<" && length >= l:
+			return errInvalid("length must be less than %d", l)
+		case operator == ">=" && length < l:
+			return errInvalid("length must be greater than or equal to %d", l)
+		case operator == ">" && length <= l:
+			return errInvalid("length must be greater than %d", l)
+		case operator == "!=" && length == l:
+			return errInvalid("length must not equal %d", l)
+		case operator == "==" && length != l:
+			return errInvalid("length must equal %d", l)
+		}
+		return nil
 	}
-	// Reinsert values under keys mutated by "key" directives
-	for _, r := range renamedKeys {
-		val := refVal.MapIndex(r[0])
-		refVal.SetMapIndex(r[0], reflect.Value{})
-		if refVal.MapIndex(r[1]).IsValid() {
-			return errInvalid("[%v] key: [%v] already exists", r[0], r[1])
-		}
-		refVal.SetMapIndex(r[1], val)
-	}
-	return nil
 }

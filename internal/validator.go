@@ -36,12 +36,14 @@ func Validate(ctx context.Context, data any) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	refType := reflect.TypeOf(data)
-	err := Compile(refType)
+	p, err := planOf(reflect.TypeOf(data))
 	if err != nil {
 		return err
 	}
-	return validateAny(ctx, refType, reflect.ValueOf(data), nil)
+	if p == nil {
+		return nil
+	}
+	return p.execute(ctx, reflect.ValueOf(data))
 }
 
 // Validator implements a single method that returns an error if a struct is invalid.

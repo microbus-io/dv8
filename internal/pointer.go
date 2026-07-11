@@ -20,13 +20,21 @@ import (
 	"reflect"
 )
 
-// validatePointer validates the value of a pointer against the tags.
-func validatePointer(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	if refVal.IsNil() {
-		if tagsContain(tags, "notzero") {
-			return errInvalid("value is required")
-		}
+// compilePointer compiles the validation of a pointer against the tags.
+// The tags pass through to the pointed-to value.
+func compilePointer(refType reflect.Type, tags []string, memo map[planKey]*plan) []step {
+	notzero := tagsContain(tags, "notzero")
+	sub := buildPlan(refType.Elem(), tags, memo)
+	if !notzero && sub.isEmpty() {
 		return nil
 	}
-	return validateAny(ctx, refType.Elem(), refVal.Elem(), tags)
+	return []step{func(ctx context.Context, refVal reflect.Value) error {
+		if refVal.IsNil() {
+			if notzero {
+				return errInvalid("value is required")
+			}
+			return nil
+		}
+		return sub.execute(ctx, refVal.Elem())
+	}}
 }

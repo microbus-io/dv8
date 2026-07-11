@@ -16,7 +16,7 @@ limitations under the License.
 package internal
 
 import (
-	"fmt"
+	"context"
 	"reflect"
 	"strconv"
 	"strings"
@@ -24,70 +24,72 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateFloat validates the value of a floating point number against the tags.
-func validateFloat(refVal reflect.Value, tags []string) (err error) {
-	f := refVal.Float()
-	// Default value and required
+// compileFloat compiles the validation of a floating point number against the tags.
+func compileFloat(tags []string) []step {
 	required := false
-	changed := false
+	hasDefault := false
+	var def float64
 	for _, t := range tags {
 		if t == "notzero" {
 			required = true
-		} else if f == 0 && strings.HasPrefix(t, "default=") {
-			def, err := strconv.ParseFloat(t[len("default="):], 64)
+		} else if !hasDefault && strings.HasPrefix(t, "default=") {
+			v, err := strconv.ParseFloat(t[len("default="):], 64)
 			if err != nil {
-				return err
+				continue
 			}
-			if def != f {
-				f = def
-				changed = true
-			}
+			def = v
+			hasDefault = true
 		}
 	}
-	if changed {
-		if !refVal.CanSet() {
-			return errors.New("data must be passed by reference")
-		}
-		refVal.SetFloat(f)
+	type valCheck struct {
+		operator string
+		v        float64
 	}
-	if f == 0 && required {
-		return errInvalid("non-zero value is required")
-	}
-	// Range constraints
+	var checks []valCheck
 	for _, t := range tags {
 		if strings.HasPrefix(t, "val") && len(t) > 4 {
-			// Example: val<M
-			operator := t[3:4]
-			var v float64
-			if t[4] == '=' {
-				operator += "="
-				v, err = strconv.ParseFloat(t[5:], 64)
-			} else {
-				v, err = strconv.ParseFloat(t[4:], 64)
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			switch {
-			case operator == "<=" && f > v:
-				err = errInvalid("must be less than or equal to %f", v)
-			case operator == "<" && f >= v:
-				err = errInvalid("must be less than %f", v)
-			case operator == ">=" && f < v:
-				err = errInvalid("must be greater than or equal to %f", v)
-			case operator == ">" && f <= v:
-				err = errInvalid("must be greater than %f", v)
-			case operator == "!=" && f == v:
-				err = errInvalid("must not equal %f", v)
-			case operator == "==" && f != v:
-				err = errInvalid("must equal %f", v)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
+			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				return err
+				continue
 			}
+			checks = append(checks, valCheck{operator, v})
 		}
 	}
-	return nil
+	if !required && !hasDefault && len(checks) == 0 {
+		return nil
+	}
+	return []step{func(_ context.Context, refVal reflect.Value) error {
+		f := refVal.Float()
+		if f == 0 && hasDefault && def != 0 {
+			if !refVal.CanSet() {
+				return errors.New("data must be passed by reference")
+			}
+			refVal.SetFloat(def)
+			f = def
+		}
+		if f == 0 && required {
+			return errInvalid("non-zero value is required")
+		}
+		for _, c := range checks {
+			switch {
+			case c.operator == "<=" && f > c.v:
+				return errInvalid("must be less than or equal to %f", c.v)
+			case c.operator == "<" && f >= c.v:
+				return errInvalid("must be less than %f", c.v)
+			case c.operator == ">=" && f < c.v:
+				return errInvalid("must be greater than or equal to %f", c.v)
+			case c.operator == ">" && f <= c.v:
+				return errInvalid("must be greater than %f", c.v)
+			case c.operator == "!=" && f == c.v:
+				return errInvalid("must not equal %f", c.v)
+			case c.operator == "==" && f != c.v:
+				return errInvalid("must equal %f", c.v)
+			}
+		}
+		return nil
+	}}
 }

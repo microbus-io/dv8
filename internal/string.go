@@ -16,7 +16,7 @@ limitations under the License.
 package internal
 
 import (
-	"fmt"
+	"context"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -49,134 +49,135 @@ func compileRegexp(pattern string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-// validateString validates the value of a string against the tags.
-func validateString(refVal reflect.Value, tags []string) (err error) {
-	s := refVal.String()
-	// Trim spaces
-	changed := false
+// compileString compiles the validation of a string against the tags.
+func compileString(tags []string) []step {
+	// Mutations run first: trim, then case folding and defaults in tag order
+	var mutations []func(s string) string
 	if tagsContain(tags, "trim") {
-		trimmed := strings.TrimSpace(s)
-		if trimmed != s {
-			s = trimmed
-			changed = true
-		}
+		mutations = append(mutations, strings.TrimSpace)
 	}
-	// Default value and required
 	required := false
 	for _, t := range tags {
 		if t == "notzero" {
 			required = true
-		} else if t == "toupper" && s != strings.ToUpper(s) {
-			s = strings.ToUpper(s)
-			changed = true
-		} else if t == "tolower" && s != strings.ToLower(s) {
-			s = strings.ToLower(s)
-			changed = true
-		} else if s == "" && strings.HasPrefix(t, "default=") {
+		} else if t == "toupper" {
+			mutations = append(mutations, strings.ToUpper)
+		} else if t == "tolower" {
+			mutations = append(mutations, strings.ToLower)
+		} else if strings.HasPrefix(t, "default=") {
 			def := t[len("default="):]
-			if def != s {
-				s = def
-				changed = true
-			}
+			mutations = append(mutations, func(s string) string {
+				if s == "" {
+					return def
+				}
+				return s
+			})
 		}
 	}
-	if changed {
-		if !refVal.CanSet() {
-			return errors.New("data must be passed by reference")
-		}
-		refVal.SetString(s)
-	}
-	if s == "" && required {
-		return errInvalid("value is required")
-	}
-	// Other constraints
+	// Constraint checks run after mutations, in tag order
+	var checks []func(s string) error
 	for _, t := range tags {
 		if strings.HasPrefix(t, "len") && len(t) > 4 {
-			// Example: len<8
-			operator := t[3:4]
-			var l int
-			if t[4] == '=' {
-				operator += "="
-				l, err = strconv.Atoi(t[5:])
-			} else {
-				l, err = strconv.Atoi(t[4:])
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			strLen := len([]rune(s))
-			switch {
-			case operator == "<=" && strLen > l:
-				err = errInvalid("length must be less than or equal to %d", l)
-			case operator == "<" && strLen >= l:
-				err = errInvalid("length must be less than %d", l)
-			case operator == ">=" && strLen < l:
-				err = errInvalid("length must be greater than or equal to %d", l)
-			case operator == ">" && strLen <= l:
-				err = errInvalid("length must be greater than %d", l)
-			case operator == "!=" && strLen == l:
-				err = errInvalid("length must not equal %d", l)
-			case operator == "==" && strLen != l:
-				err = errInvalid("length must equal %d", l)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
+			l, err := strconv.Atoi(value)
 			if err != nil {
-				return err
+				continue
 			}
+			checks = append(checks, func(s string) error {
+				strLen := len([]rune(s))
+				switch {
+				case operator == "<=" && strLen > l:
+					return errInvalid("length must be less than or equal to %d", l)
+				case operator == "<" && strLen >= l:
+					return errInvalid("length must be less than %d", l)
+				case operator == ">=" && strLen < l:
+					return errInvalid("length must be greater than or equal to %d", l)
+				case operator == ">" && strLen <= l:
+					return errInvalid("length must be greater than %d", l)
+				case operator == "!=" && strLen == l:
+					return errInvalid("length must not equal %d", l)
+				case operator == "==" && strLen != l:
+					return errInvalid("length must equal %d", l)
+				}
+				return nil
+			})
 		} else if strings.HasPrefix(t, "val") && len(t) > 4 {
-			// Example: val<M
-			operator := t[3:4]
-			var v string
-			if t[4] == '=' {
-				operator += "="
-				v = t[5:]
-			} else {
-				v = t[4:]
-			}
+			operator, v, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			switch {
-			case operator == "<=" && s > v:
-				err = errInvalid("must be less than or equal to '%s'", v)
-			case operator == "<" && s >= v:
-				err = errInvalid("must be less than '%s'", v)
-			case operator == ">=" && s < v:
-				err = errInvalid("must be greater than or equal to '%s'", v)
-			case operator == ">" && s <= v:
-				err = errInvalid("must be greater than '%s'", v)
-			case operator == "!=" && s == v:
-				err = errInvalid("must not equal '%s'", v)
-			case operator == "==" && s != v:
-				err = errInvalid("must equal '%s'", v)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
-			if err != nil {
-				return err
-			}
+			checks = append(checks, func(s string) error {
+				switch {
+				case operator == "<=" && s > v:
+					return errInvalid("must be less than or equal to '%s'", v)
+				case operator == "<" && s >= v:
+					return errInvalid("must be less than '%s'", v)
+				case operator == ">=" && s < v:
+					return errInvalid("must be greater than or equal to '%s'", v)
+				case operator == ">" && s <= v:
+					return errInvalid("must be greater than '%s'", v)
+				case operator == "!=" && s == v:
+					return errInvalid("must not equal '%s'", v)
+				case operator == "==" && s != v:
+					return errInvalid("must equal '%s'", v)
+				}
+				return nil
+			})
 		} else if strings.HasPrefix(t, "regexp ") && len(t) > 7 {
 			re, err := compileRegexp(t[7:])
 			if err != nil {
-				return err
+				continue
 			}
-			if !re.Match([]byte(s)) {
-				return errInvalid("value doesn't match required pattern")
-			}
-		} else if strings.HasPrefix(t, "oneof ") && len(t) > 6 {
-			validVals := strings.Split(t[6:], "|")
-			found := false
-			for _, v := range validVals {
-				if s == v {
-					found = true
-					break
+			checks = append(checks, func(s string) error {
+				if !re.MatchString(s) {
+					return errInvalid("value doesn't match required pattern")
 				}
-			}
-			if !found {
-				return errInvalid("value must be one of %s", t[6:])
-			}
+				return nil
+			})
+		} else if strings.HasPrefix(t, "oneof ") && len(t) > 6 {
+			set := t[6:]
+			validVals := strings.Split(set, "|")
+			checks = append(checks, func(s string) error {
+				for _, v := range validVals {
+					if s == v {
+						return nil
+					}
+				}
+				return errInvalid("value must be one of %s", set)
+			})
 		}
 	}
-	return nil
+	if len(mutations) == 0 && !required && len(checks) == 0 {
+		return nil
+	}
+	return []step{func(_ context.Context, refVal reflect.Value) error {
+		s := refVal.String()
+		changed := false
+		for _, m := range mutations {
+			mutated := m(s)
+			if mutated != s {
+				s = mutated
+				changed = true
+			}
+		}
+		if changed {
+			if !refVal.CanSet() {
+				return errors.New("data must be passed by reference")
+			}
+			refVal.SetString(s)
+		}
+		if s == "" && required {
+			return errInvalid("value is required")
+		}
+		for _, check := range checks {
+			err := check(s)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}}
 }

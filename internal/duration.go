@@ -16,7 +16,7 @@ limitations under the License.
 package internal
 
 import (
-	"fmt"
+	"context"
 	"reflect"
 	"strings"
 	"time"
@@ -24,70 +24,72 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateDuration validates the value of a duration against the tags.
-func validateDuration(refVal reflect.Value, tags []string) (err error) {
-	d := time.Duration(refVal.Int())
-	// Default value and required
+// compileDuration compiles the validation of a duration against the tags.
+func compileDuration(tags []string) []step {
 	required := false
-	changed := false
+	hasDefault := false
+	var def time.Duration
 	for _, t := range tags {
 		if t == "notzero" {
 			required = true
-		} else if d == 0 && strings.HasPrefix(t, "default=") {
-			def, err := time.ParseDuration(t[len("default="):])
+		} else if !hasDefault && strings.HasPrefix(t, "default=") {
+			v, err := time.ParseDuration(t[len("default="):])
 			if err != nil {
-				return err
+				continue
 			}
-			if def != d {
-				d = def
-				changed = true
-			}
+			def = v
+			hasDefault = true
 		}
 	}
-	if changed {
-		if !refVal.CanSet() {
-			return errors.New("data must be passed by reference")
-		}
-		refVal.SetInt(int64(d))
+	type valCheck struct {
+		operator string
+		v        time.Duration
 	}
-	if d == 0 && required {
-		return errInvalid("non-zero value is required")
-	}
-	// Range constraints
+	var checks []valCheck
 	for _, t := range tags {
 		if strings.HasPrefix(t, "val") && len(t) > 4 {
-			// Example: val<2s
-			operator := t[3:4]
-			var v time.Duration
-			if t[4] == '=' {
-				operator += "="
-				v, err = time.ParseDuration(t[5:])
-			} else {
-				v, err = time.ParseDuration(t[4:])
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			switch {
-			case operator == "<=" && d > v:
-				err = errInvalid("must be less than or equal to %v", v)
-			case operator == "<" && d >= v:
-				err = errInvalid("must be less than %v", v)
-			case operator == ">=" && d < v:
-				err = errInvalid("must be greater than or equal to %v", v)
-			case operator == ">" && d <= v:
-				err = errInvalid("must be greater than %v", v)
-			case operator == "!=" && d == v:
-				err = errInvalid("must not equal %v", v)
-			case operator == "==" && d != v:
-				err = errInvalid("must equal %v", v)
-			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
+			v, err := time.ParseDuration(value)
 			if err != nil {
-				return err
+				continue
 			}
+			checks = append(checks, valCheck{operator, v})
 		}
 	}
-	return nil
+	if !required && !hasDefault && len(checks) == 0 {
+		return nil
+	}
+	return []step{func(_ context.Context, refVal reflect.Value) error {
+		d := time.Duration(refVal.Int())
+		if d == 0 && hasDefault && def != 0 {
+			if !refVal.CanSet() {
+				return errors.New("data must be passed by reference")
+			}
+			refVal.SetInt(int64(def))
+			d = def
+		}
+		if d == 0 && required {
+			return errInvalid("non-zero value is required")
+		}
+		for _, c := range checks {
+			switch {
+			case c.operator == "<=" && d > c.v:
+				return errInvalid("must be less than or equal to %v", c.v)
+			case c.operator == "<" && d >= c.v:
+				return errInvalid("must be less than %v", c.v)
+			case c.operator == ">=" && d < c.v:
+				return errInvalid("must be greater than or equal to %v", c.v)
+			case c.operator == ">" && d <= c.v:
+				return errInvalid("must be greater than %v", c.v)
+			case c.operator == "!=" && d == c.v:
+				return errInvalid("must not equal %v", c.v)
+			case c.operator == "==" && d != c.v:
+				return errInvalid("must equal %v", c.v)
+			}
+		}
+		return nil
+	}}
 }

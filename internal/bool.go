@@ -16,7 +16,7 @@ limitations under the License.
 package internal
 
 import (
-	"fmt"
+	"context"
 	"reflect"
 	"strconv"
 	"strings"
@@ -24,61 +24,64 @@ import (
 	"github.com/microbus-io/errors"
 )
 
-// validateBool validates the value of a boolean against the tags.
-func validateBool(refVal reflect.Value, tags []string) (err error) {
-	b := refVal.Bool()
-	// Default value and required
+// compileBool compiles the validation of a boolean against the tags.
+func compileBool(tags []string) []step {
 	required := false
-	changed := false
+	hasDefault := false
+	var def bool
 	for _, t := range tags {
 		if t == "notzero" {
 			required = true
-		} else if !b && strings.HasPrefix(t, "default=") {
-			def, err := strconv.ParseBool(t[len("default="):])
+		} else if !hasDefault && strings.HasPrefix(t, "default=") {
+			v, err := strconv.ParseBool(t[len("default="):])
 			if err != nil {
-				return err
+				continue
 			}
-			if def != b {
-				b = def
-				changed = true
-			}
+			def = v
+			hasDefault = true
 		}
 	}
-	if changed {
-		if !refVal.CanSet() {
-			return errors.New("data must be passed by reference")
-		}
-		refVal.SetBool(b)
+	type valCheck struct {
+		operator string
+		v        bool
 	}
-	if !b && required {
-		return errInvalid("non-zero value is required")
-	}
+	var checks []valCheck
 	for _, t := range tags {
 		if strings.HasPrefix(t, "val") && len(t) > 4 {
-			// Example: val<M
-			operator := t[3:4]
-			var v bool
-			if t[4] == '=' {
-				operator += "="
-				v, err = strconv.ParseBool(t[5:])
-			} else {
-				v, err = strconv.ParseBool(t[4:])
-			}
+			operator, value, err := splitOpValue(t, 3)
 			if err != nil {
-				return err
+				continue
 			}
-			switch {
-			case operator == "!=" && b == v:
-				err = errInvalid("must not equal %v", v)
-			case operator == "==" && b != v:
-				err = errInvalid("must equal %v", v)
-			case operator != "!=" && operator != "==":
-				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
-			}
+			v, err := strconv.ParseBool(value)
 			if err != nil {
-				return err
+				continue
 			}
+			checks = append(checks, valCheck{operator, v})
 		}
 	}
-	return nil
+	if !required && !hasDefault && len(checks) == 0 {
+		return nil
+	}
+	return []step{func(_ context.Context, refVal reflect.Value) error {
+		b := refVal.Bool()
+		if !b && hasDefault && def {
+			if !refVal.CanSet() {
+				return errors.New("data must be passed by reference")
+			}
+			refVal.SetBool(def)
+			b = def
+		}
+		if !b && required {
+			return errInvalid("non-zero value is required")
+		}
+		for _, c := range checks {
+			switch {
+			case c.operator == "!=" && b == c.v:
+				return errInvalid("must not equal %v", c.v)
+			case c.operator == "==" && b != c.v:
+				return errInvalid("must equal %v", c.v)
+			}
+		}
+		return nil
+	}}
 }
