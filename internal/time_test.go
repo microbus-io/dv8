@@ -24,45 +24,45 @@ import (
 
 func TestTime_Required(t *testing.T) {
 	x := struct {
-		T time.Time `dv8:"required"`
+		T time.Time `dv8:"notzero"`
 	}{
 		T: time.Now(),
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.T = time.Time{}
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestTime_Pointer(t *testing.T) {
 	x := struct {
-		T *time.Time `dv8:"required"`
+		T *time.Time `dv8:"notzero"`
 	}{}
 	now := time.Now()
 	x.T = &now
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, now, *x.T)
 
 	x.T = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestTime_Default(t *testing.T) {
 	x := struct {
-		T time.Time `dv8:"required,default=2006-01-02"`
+		T time.Time `dv8:"notzero,default=2006-01-02"`
 	}{
 		T: time.Time{},
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, mustParseTime("2006-01-02"), x.T)
 
 	x.T = mustParseTime("2023-01-01")
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, mustParseTime("2023-01-01"), x.T)
 }
@@ -73,10 +73,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02"),
 	}
-	err := Validate(&gte)
+	err := Validate(nil, &gte)
 	assert.ErrorContains(t, err, "later")
 	gte.T = mustParseTime("2006-01-02T15:04:05")
-	err = Validate(&gte)
+	err = Validate(nil, &gte)
 	assert.NoError(t, err)
 
 	gt := struct {
@@ -84,10 +84,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02T15:04:05"),
 	}
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.ErrorContains(t, err, "later")
 	gt.T = mustParseTime("2006-01-03")
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.NoError(t, err)
 
 	lte := struct {
@@ -95,10 +95,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-03"),
 	}
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.ErrorContains(t, err, "earlier")
 	lte.T = mustParseTime("2006-01-02T15:04:05")
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.NoError(t, err)
 
 	lt := struct {
@@ -106,10 +106,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02T15:04:05"),
 	}
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.ErrorContains(t, err, "earlier")
 	lt.T = mustParseTime("2006-01-02")
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.NoError(t, err)
 
 	eq := struct {
@@ -117,10 +117,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02"),
 	}
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.ErrorContains(t, err, "equal")
 	eq.T = mustParseTime("2006-01-02T15:04:05")
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.NoError(t, err)
 
 	ne := struct {
@@ -128,10 +128,10 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02T15:04:05"),
 	}
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.ErrorContains(t, err, "equal")
 	ne.T = mustParseTime("2006-01-02")
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.NoError(t, err)
 
 	bad := struct {
@@ -139,6 +139,6 @@ func TestTime_Val(t *testing.T) {
 	}{
 		T: mustParseTime("2006-01-02"),
 	}
-	err = Validate(&bad)
+	err = Validate(nil, &bad)
 	assert.ErrorContains(t, err, "operator")
 }

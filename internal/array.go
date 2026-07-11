@@ -25,21 +25,29 @@ import (
 )
 
 // validateArray validates the value of an array against the tags.
+// Unprefixed directives apply to the array itself; "each" directives distribute to its elements.
 func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
-	// Length
-	for i, t := range tags {
-		if strings.HasPrefix(t, "arrlen") && len(t) > 7 {
-			if refVal.IsNil() {
-				return errors.New("value is required")
-			}
-			// Example: arrlen<8
-			operator := t[6:7]
+	var eachTags []string
+	for _, t := range tags {
+		if strings.HasPrefix(t, "each ") {
+			eachTags = append(eachTags, t[len("each "):])
+			continue
+		}
+		if strings.HasPrefix(t, "key ") {
+			return fmt.Errorf("%w: 'key' applies only to maps", ErrDirective)
+		}
+		if t == "notzero" && refType.Kind() == reflect.Slice && refVal.IsNil() {
+			return errors.New("value is required")
+		}
+		if strings.HasPrefix(t, "len") && len(t) > 4 {
+			// Example: len<8
+			operator := t[3:4]
 			var l int
-			if t[7] == '=' {
+			if t[4] == '=' {
 				operator += "="
-				l, err = strconv.Atoi(t[8:])
+				l, err = strconv.Atoi(t[5:])
 			} else {
-				l, err = strconv.Atoi(t[7:])
+				l, err = strconv.Atoi(t[4:])
 			}
 			if err != nil {
 				return err
@@ -59,19 +67,18 @@ func validateArray(ctx context.Context, refType reflect.Type, refVal reflect.Val
 			case operator == "==" && arrayLen != l:
 				err = fmt.Errorf("length must equal %d", l)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("unsupported operator '%s'", operator)
+				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
 			if err != nil {
 				return err
 			}
-			tags[i] = "" // Do not apply to items
 		}
 	}
 	// Nested elements
 	arrayType := refType.Elem()
 	for j := 0; j < refVal.Len(); j++ {
 		val := refVal.Index(j)
-		err = validateAny(ctx, arrayType, val, tags)
+		err = validateAny(ctx, arrayType, val, eachTags)
 		if err != nil {
 			return fmt.Errorf("[%d]: %w", j, err)
 		}

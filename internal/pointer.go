@@ -24,7 +24,7 @@ import (
 // validatePointer validates the value of a pointer against the tags.
 func validatePointer(ctx context.Context, refType reflect.Type, refVal reflect.Value, tags []string) (err error) {
 	if refVal.IsNil() {
-		if tagsContain(tags, "required") {
+		if tagsContain(tags, "notzero") {
 			return errors.New("value is required")
 		}
 		return nil

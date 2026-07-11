@@ -23,25 +23,27 @@ import (
 // Validate takes in a reference to a data struct (pointer, map of, slice of)
 // and validates each of its fields against their dv8 field tags.
 // It recurses into nested structs.
-func Validate(data any) error {
-	return validateAny(context.Background(), reflect.TypeOf(data), reflect.ValueOf(data), nil)
-}
-
-// ValidateContext takes in a reference to a data struct (pointer, map of, slice of)
-// and validates each of its fields against their dv8 field tags.
-// It recurses into nested structs.
-func ValidateContext(ctx context.Context, data any) error {
-	return validateAny(ctx, reflect.TypeOf(data), reflect.ValueOf(data), nil)
+// A nil ctx is tolerated and replaced with context.Background.
+func Validate(ctx context.Context, data any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	refType := reflect.TypeOf(data)
+	err := Compile(refType)
+	if err != nil {
+		return err
+	}
+	return validateAny(ctx, refType, reflect.ValueOf(data), nil)
 }
 
 // Validator implements a single method that returns an error if a struct is invalid.
-// DV8 calls this function during validation on types that implements it.
+// DV8 calls this method during validation on any type in the object graph that implements it.
 type Validator interface {
-	Validate() error
+	Validate(ctx context.Context) error
 }
 
-// ValidatorContext implements a single method that returns an error if a struct is invalid.
-// DV8 calls this function during validation on types that implements it.
-type ValidatorContext interface {
-	ValidateContext(ctx context.Context) error
+// validatorNoContext is the parameterless fallback, honored for interop with types not written for DV8.
+// Because both variants are named Validate, a type can implement at most one of them.
+type validatorNoContext interface {
+	Validate() error
 }

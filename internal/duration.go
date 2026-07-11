@@ -30,7 +30,7 @@ func validateDuration(refVal reflect.Value, tags []string) (err error) {
 	required := false
 	changed := false
 	for _, t := range tags {
-		if t == "required" {
+		if t == "notzero" {
 			required = true
 		} else if d == 0 && strings.HasPrefix(t, "default=") {
 			def, err := time.ParseDuration(t[len("default="):])
@@ -81,7 +81,7 @@ func validateDuration(refVal reflect.Value, tags []string) (err error) {
 			case operator == "==" && d != v:
 				err = fmt.Errorf("must equal %v", v)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("unsupported operator '%s'", operator)
+				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
 			if err != nil {
 				return err

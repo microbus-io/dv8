@@ -22,14 +22,38 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+var (
+	regexpCache   = map[string]*regexp.Regexp{}
+	regexpCacheMu sync.RWMutex
+)
+
+// compileRegexp compiles a regular expression, caching it for reuse across validations.
+func compileRegexp(pattern string) (*regexp.Regexp, error) {
+	regexpCacheMu.RLock()
+	re, ok := regexpCache[pattern]
+	regexpCacheMu.RUnlock()
+	if ok {
+		return re, nil
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	regexpCacheMu.Lock()
+	regexpCache[pattern] = re
+	regexpCacheMu.Unlock()
+	return re, nil
+}
 
 // validateString validates the value of a string against the tags.
 func validateString(refVal reflect.Value, tags []string) (err error) {
 	s := refVal.String()
 	// Trim spaces
 	changed := false
-	if !tagsContain(tags, "notrim") {
+	if tagsContain(tags, "trim") {
 		trimmed := strings.TrimSpace(s)
 		if trimmed != s {
 			s = trimmed
@@ -39,7 +63,7 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 	// Default value and required
 	required := false
 	for _, t := range tags {
-		if t == "required" {
+		if t == "notzero" {
 			required = true
 		} else if t == "toupper" && s != strings.ToUpper(s) {
 			s = strings.ToUpper(s)
@@ -94,7 +118,7 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 			case operator == "==" && strLen != l:
 				err = fmt.Errorf("length must equal %d", l)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("unsupported operator '%s'", operator)
+				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
 			if err != nil {
 				return err
@@ -126,13 +150,13 @@ func validateString(refVal reflect.Value, tags []string) (err error) {
 			case operator == "==" && s != v:
 				err = fmt.Errorf("must equal '%s'", v)
 			case operator != "<=" && operator != "<" && operator != ">=" && operator != ">" && operator != "!=" && operator != "==":
-				err = fmt.Errorf("unsupported operator '%s'", operator)
+				err = fmt.Errorf("%w: unsupported operator '%s'", ErrDirective, operator)
 			}
 			if err != nil {
 				return err
 			}
 		} else if strings.HasPrefix(t, "regexp ") && len(t) > 7 {
-			re, err := regexp.Compile(t[7:])
+			re, err := compileRegexp(t[7:])
 			if err != nil {
 				return err
 			}

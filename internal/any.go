@@ -53,32 +53,22 @@ func validateAny(ctx context.Context, refType reflect.Type, refVal reflect.Value
 		return err
 	}
 
-	// Call the type's Validate method, if implemented
-	var ok bool
-	var okCtx bool
-	var validator Validator
-	var validatorCtx ValidatorContext
+	// Call the type's Validate method, if implemented.
+	// Both variants share the method name Validate, so a type implements at most one of them.
+	var underlying any
 	if refVal.CanAddr() {
-		underlyingPtr := refVal.Addr().Interface()
-		validator, ok = underlyingPtr.(Validator)
-		validatorCtx, okCtx = underlyingPtr.(ValidatorContext)
+		underlying = refVal.Addr().Interface()
+	} else {
+		underlying = refVal.Interface()
 	}
-	if !ok {
-		underlying := refVal.Interface()
-		validator, ok = underlying.(Validator)
-		validatorCtx, okCtx = underlying.(ValidatorContext)
+	switch v := underlying.(type) {
+	case Validator:
+		err = v.Validate(ctx)
+	case validatorNoContext:
+		err = v.Validate()
 	}
-	if ok {
-		err = validator.Validate()
-		if err != nil {
-			return err
-		}
-	}
-	if okCtx {
-		err = validatorCtx.ValidateContext(ctx)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	return nil

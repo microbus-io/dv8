@@ -23,45 +23,45 @@ import (
 
 func TestFloat_Required(t *testing.T) {
 	x := struct {
-		F float64 `dv8:"required"`
+		F float64 `dv8:"notzero"`
 	}{
 		F: 1.5,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.F = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestFloat_Pointer(t *testing.T) {
 	x := struct {
-		F *float64 `dv8:"required"`
+		F *float64 `dv8:"notzero"`
 	}{}
 	f := float64(1.5)
 	x.F = &f
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(1.5), *x.F)
 
 	x.F = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestFloat_Default(t *testing.T) {
 	x := struct {
-		F float64 `dv8:"required,default=2.5"`
+		F float64 `dv8:"notzero,default=2.5"`
 	}{
 		F: 0,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, 2.5, x.F)
 
 	x.F = 1.5
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, 1.5, x.F)
 }
@@ -72,10 +72,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 0,
 	}
-	err := Validate(&gte)
+	err := Validate(nil, &gte)
 	assert.ErrorContains(t, err, "greater")
 	gte.F = 2.5
-	err = Validate(&gte)
+	err = Validate(nil, &gte)
 	assert.NoError(t, err)
 
 	gt := struct {
@@ -83,10 +83,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 2.5,
 	}
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.ErrorContains(t, err, "greater")
 	gt.F = 3.5
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.NoError(t, err)
 
 	lte := struct {
@@ -94,10 +94,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 3.5,
 	}
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.ErrorContains(t, err, "less")
 	lte.F = 2.5
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.NoError(t, err)
 
 	lt := struct {
@@ -105,10 +105,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 2.5,
 	}
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.ErrorContains(t, err, "less")
 	lt.F = 1.5
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.NoError(t, err)
 
 	eq := struct {
@@ -116,10 +116,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 1.5,
 	}
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.ErrorContains(t, err, "equal")
 	eq.F = 2.5
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.NoError(t, err)
 
 	ne := struct {
@@ -127,10 +127,10 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 2.5,
 	}
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.ErrorContains(t, err, "equal")
 	ne.F = 1.5
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.NoError(t, err)
 
 	bad := struct {
@@ -138,7 +138,7 @@ func TestFloat_Val(t *testing.T) {
 	}{
 		F: 0,
 	}
-	err = Validate(&bad)
+	err = Validate(nil, &bad)
 	assert.ErrorContains(t, err, "operator")
 }
 
@@ -150,11 +150,11 @@ func TestFloat_Types(t *testing.T) {
 		F32: 1.5,
 		F64: 1.5,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.Error(t, err, "greater")
 
 	x.F32 = 3.5
 	x.F64 = 3.5
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 }

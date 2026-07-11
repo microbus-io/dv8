@@ -23,45 +23,45 @@ import (
 
 func TestBool_Required(t *testing.T) {
 	x := struct {
-		B bool `dv8:"required"`
+		B bool `dv8:"notzero"`
 	}{
 		B: true,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.B = false
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestBool_Pointer(t *testing.T) {
 	x := struct {
-		B *bool `dv8:"required"`
+		B *bool `dv8:"notzero"`
 	}{}
 	flag := true
 	x.B = &flag
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, true, *x.B)
 
 	x.B = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestBool_Default(t *testing.T) {
 	x := struct {
-		B bool `dv8:"required,default=true"`
+		B bool `dv8:"notzero,default=true"`
 	}{
 		B: false,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, true, x.B)
 
 	x.B = true
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, true, x.B)
 }
@@ -72,10 +72,10 @@ func TestBool_Val(t *testing.T) {
 	}{
 		B: false,
 	}
-	err := Validate(&eq)
+	err := Validate(nil, &eq)
 	assert.ErrorContains(t, err, "equal")
 	eq.B = true
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.NoError(t, err)
 
 	ne := struct {
@@ -83,10 +83,10 @@ func TestBool_Val(t *testing.T) {
 	}{
 		B: true,
 	}
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.ErrorContains(t, err, "equal")
 	ne.B = false
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.NoError(t, err)
 
 	bad := struct {
@@ -94,6 +94,6 @@ func TestBool_Val(t *testing.T) {
 	}{
 		B: true,
 	}
-	err = Validate(&bad)
+	err = Validate(nil, &bad)
 	assert.ErrorContains(t, err, "operator")
 }

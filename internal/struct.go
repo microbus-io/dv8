@@ -25,7 +25,7 @@ import (
 
 // validateStruct takes in a data struct and validates each of its fields given their dv8 field tags.
 func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Value, structTags []string) (err error) {
-	if tagsContain(structTags, "required") {
+	if tagsContain(structTags, "notzero") {
 		zero := reflect.Zero(refType)
 		if reflect.DeepEqual(zero.Interface(), refVal.Interface()) {
 			return errors.New("value is required")
@@ -52,14 +52,14 @@ func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Va
 		if tagVal == "-" {
 			continue
 		}
-		fldTags := strings.Split(tagVal, ",")
+		fldTags := splitDirectives(tagVal)
 		if tagsContain(fldTags, "-") {
 			continue
 		}
 		rt := fld.Type
 		rv := refVal.Field(i)
-		// Main fields run validations of the parent struct too
-		if tagsContain(fldTags, "main") {
+		// Delegate fields run validations of the parent struct too
+		if tagsContain(fldTags, "delegate") {
 			err = validateAny(ctx, rt, rv, structTags)
 			if err != nil {
 				return fmt.Errorf("%s: %w", fld.Name, err)
@@ -71,6 +71,22 @@ func validateStruct(ctx context.Context, refType reflect.Type, refVal reflect.Va
 		}
 	}
 	return nil
+}
+
+// splitDirectives splits a dv8 tag on commas. A comma preceded by a backslash is part of the
+// directive's value rather than a separator, and the backslash is removed.
+func splitDirectives(tagVal string) []string {
+	segments := strings.Split(tagVal, ",")
+	directives := []string{segments[0]}
+	for _, seg := range segments[1:] {
+		last := directives[len(directives)-1]
+		if strings.HasSuffix(last, `\`) {
+			directives[len(directives)-1] = last[:len(last)-1] + "," + seg
+		} else {
+			directives = append(directives, seg)
+		}
+	}
+	return directives
 }
 
 func tagsContain(tags []string, val string) bool {

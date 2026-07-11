@@ -24,45 +24,45 @@ import (
 
 func TestDuration_Required(t *testing.T) {
 	x := struct {
-		D time.Duration `dv8:"required"`
+		D time.Duration `dv8:"notzero"`
 	}{
 		D: time.Second,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.D = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestDuration_Pointer(t *testing.T) {
 	x := struct {
-		D *time.Duration `dv8:"required"`
+		D *time.Duration `dv8:"notzero"`
 	}{}
 	dur := time.Second
 	x.D = &dur
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, time.Second, *x.D)
 
 	x.D = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestDuration_Default(t *testing.T) {
 	x := struct {
-		D time.Duration `dv8:"required,default=2s"`
+		D time.Duration `dv8:"notzero,default=2s"`
 	}{
 		D: 0,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, time.Second*2, x.D)
 
 	x.D = time.Minute
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, time.Minute, x.D)
 }
@@ -73,10 +73,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: 0,
 	}
-	err := Validate(&gte)
+	err := Validate(nil, &gte)
 	assert.ErrorContains(t, err, "greater")
 	gte.D = time.Second * 2
-	err = Validate(&gte)
+	err = Validate(nil, &gte)
 	assert.NoError(t, err)
 
 	gt := struct {
@@ -84,10 +84,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: time.Second * 2,
 	}
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.ErrorContains(t, err, "greater")
 	gt.D = time.Second * 3
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.NoError(t, err)
 
 	lte := struct {
@@ -95,10 +95,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: time.Second * 3,
 	}
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.ErrorContains(t, err, "less")
 	lte.D = time.Second * 2
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.NoError(t, err)
 
 	lt := struct {
@@ -106,10 +106,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: time.Second * 2,
 	}
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.ErrorContains(t, err, "less")
 	lt.D = time.Second * 1
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.NoError(t, err)
 
 	eq := struct {
@@ -117,10 +117,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: time.Second * 1,
 	}
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.ErrorContains(t, err, "equal")
 	eq.D = time.Second * 2
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.NoError(t, err)
 
 	ne := struct {
@@ -128,10 +128,10 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: time.Second * 2,
 	}
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.ErrorContains(t, err, "equal")
 	ne.D = time.Second * 1
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.NoError(t, err)
 
 	bad := struct {
@@ -139,6 +139,6 @@ func TestDuration_Val(t *testing.T) {
 	}{
 		D: 0,
 	}
-	err = Validate(&bad)
+	err = Validate(nil, &bad)
 	assert.ErrorContains(t, err, "operator")
 }

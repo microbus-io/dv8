@@ -17,23 +17,30 @@ package dv8
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/microbus-io/dv8/internal"
 )
+
+// ErrDirective indicates a malformed or misapplied dv8 directive: a bug in the tag, not in the data.
+// Match it with errors.Is to distinguish programming errors from invalid data.
+var ErrDirective = internal.ErrDirective
 
 /*
 Validate takes in a reference to one or more data struct (pointer, map of, slice of)
 and validates each of its fields against their dv8 field tags.
 It recurses into nested structs.
+The context is passed to any type in the object graph that implements the Validator interface.
+A nil ctx is tolerated and replaced with context.Background.
 
 Example:
 
 	type Person struct {
-		First   string `dv8:"required,len<=32"`
-		Last    string `dv8:"required,len<=32"`
+		First   string `dv8:"notzero,len<=32"`
+		Last    string `dv8:"notzero,len<=32"`
 		Age     int    `dv8:"val>=18,val<=120"`
 		State   string `dv8:"len==2,default=CA"`
-		Zip     string `dv8:"required,regexp ^[0-9]{5}$"`
+		Zip     string `dv8:"trim,notzero,regexp ^[0-9]{5}$"`
 	}
 
 	p := &Person{
@@ -44,14 +51,14 @@ Example:
 		Zip:   " 12345",  // Trim whitespaces
 	}
 
-	err := dv8.Validate(p)
+	err := dv8.Validate(ctx, p)
 	if err != nil {
 		return err // Age: must be less than or equal to 120
 	}
 */
-func Validate(data ...any) error {
+func Validate(ctx context.Context, data ...any) error {
 	for i := range data {
-		err := internal.Validate(data[i])
+		err := internal.Validate(ctx, data[i])
 		if err != nil {
 			return err
 		}
@@ -59,11 +66,18 @@ func Validate(data ...any) error {
 	return nil
 }
 
-// ValidateContext is the same as Validate but takes in a context that is used to validate structs
-// that implement the ValidatorContext interface.
-func ValidateContext(ctx context.Context, data ...any) error {
-	for i := range data {
-		err := internal.ValidateContext(ctx, data[i])
+// Compile validates the dv8 directives declared on one or more types, recursing into nested types,
+// without validating any data. Each argument may be a reflect.Type or a specimen value of the type.
+// A malformed or misapplied directive is reported as an error wrapping ErrDirective.
+// Validate compiles on first use and caches per type; calling Compile eagerly, e.g. at startup,
+// surfaces broken directives before any data arrives.
+func Compile(types ...any) error {
+	for _, t := range types {
+		refType, ok := t.(reflect.Type)
+		if !ok {
+			refType = reflect.TypeOf(t)
+		}
+		err := internal.Compile(refType)
 		if err != nil {
 			return err
 		}
@@ -72,9 +86,8 @@ func ValidateContext(ctx context.Context, data ...any) error {
 }
 
 // Validator implements a single method that returns an error if a struct is invalid.
-// DV8 calls this function during validation on types that implements it.
+// DV8 calls this method during validation on any type in the object graph that implements it,
+// passing the context given to dv8.Validate.
+// A parameterless Validate() error method is honored as a fallback for interop with types not written for DV8.
+// Because both variants are named Validate, a type can implement at most one of them.
 type Validator = internal.Validator
-
-// ValidatorContext implements a single method that returns an error if a struct is invalid.
-// DV8 calls this function during validation on types that implements it.
-type ValidatorContext = internal.ValidatorContext

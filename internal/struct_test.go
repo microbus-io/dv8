@@ -28,41 +28,41 @@ func TestStruct_Required(t *testing.T) {
 		I int
 	}
 	x := struct {
-		N *nested `dv8:"required"`
+		N *nested `dv8:"notzero"`
 	}{
 		N: &nested{
 			I: 5,
 		},
 	}
-	// err := Validate(&x)
+	// err := Validate(nil, &x)
 	// assert.NoError(t, err)
 
 	x.N = nil
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestStruct_Pointer(t *testing.T) {
 	x := struct {
-		S *struct{ I int } `dv8:"required"`
+		S *struct{ I int } `dv8:"notzero"`
 	}{}
 	s := struct{ I int }{I: 1}
 	x.S = &s
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.S.I = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 
 	x.S = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestStruct_Nesting(t *testing.T) {
 	type nested struct {
-		I int `dv8:"required"`
+		I int `dv8:"notzero"`
 	}
 	x := struct {
 		N *nested
@@ -71,11 +71,11 @@ func TestStruct_Nesting(t *testing.T) {
 			I: 5,
 		},
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.N.I = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 
 	y := struct {
@@ -85,11 +85,11 @@ func TestStruct_Nesting(t *testing.T) {
 			I: 5,
 		},
 	}
-	err = Validate(&y)
+	err = Validate(nil, &y)
 	assert.NoError(t, err)
 
 	y.N.I = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
@@ -98,26 +98,26 @@ func TestStruct_On1(t *testing.T) {
 		I int
 	}
 	type parent struct {
-		C *child `dv8:"required,val>2,on I"`
+		C *child `dv8:"notzero,val>2,on I"`
 	}
 	x := parent{
 		C: &child{
 			I: 1,
 		},
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.Error(t, err, "greater")
 
 	x.C.I = 3
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.C.I = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.Error(t, err, "required")
 
 	x.C = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.Error(t, err, "required")
 }
 
@@ -132,55 +132,55 @@ func TestStruct_On2(t *testing.T) {
 		Name string
 	}
 	type MyData struct {
-		K       Key       `dv8:"required,on ID"`
-		Expires Timestamp `dv8:"required,on Time"`
+		K       Key       `dv8:"notzero,on ID"`
+		Expires Timestamp `dv8:"notzero,on Time"`
 		Owner   Person    `dv8:"default=Unknown,on Name"`
 	}
 
 	x := MyData{}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.Error(t, err, "required")
 	assert.Error(t, err, "K:")
 
 	x.K.ID = 1
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.Error(t, err, "required")
 	assert.Error(t, err, "Expires:")
 
 	x.Expires.Time = time.Now()
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, x.Owner.Name, "Unknown")
 }
 
 func TestStruct_Main(t *testing.T) {
 	type Timestamp struct {
-		time.Time `dv8:"main"`
+		time.Time `dv8:"delegate"`
 	}
 	type Key struct {
-		ID int `dv8:"main"`
+		ID int `dv8:"delegate"`
 	}
 	type Person struct {
-		Name string `dv8:"main"`
+		Name string `dv8:"delegate"`
 	}
 	type MyData struct {
-		K       Key       `dv8:"required"`
-		Expires Timestamp `dv8:"required"`
+		K       Key       `dv8:"notzero"`
+		Expires Timestamp `dv8:"notzero"`
 		Owner   Person    `dv8:"default=Unknown"`
 	}
 
 	x := MyData{}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.Error(t, err, "required")
 	assert.Error(t, err, "K:")
 
 	x.K.ID = 1
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.Error(t, err, "required")
 	assert.Error(t, err, "Expires:")
 
 	x.Expires.Time = time.Now()
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, x.Owner.Name, "Unknown")
 }
@@ -199,11 +199,11 @@ func (r SmallRect) Validate() error {
 
 func TestStruct_Validator(t *testing.T) {
 	small := SmallRect{W: 5, H: 5}
-	err := Validate(small)
+	err := Validate(nil, small)
 	assert.NoError(t, err)
 
 	big := SmallRect{W: 50, H: 50}
-	err = Validate(big)
+	err = Validate(nil, big)
 	assert.ErrorContains(t, err, "too big")
 }
 
@@ -213,6 +213,6 @@ func TestStruct_ValidatorOfAnonymous(t *testing.T) {
 	}{
 		SmallRect{W: 50, H: 50},
 	}
-	err := Validate(x)
+	err := Validate(nil, x)
 	assert.ErrorContains(t, err, "too big")
 }

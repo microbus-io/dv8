@@ -23,45 +23,45 @@ import (
 
 func TestUint_Required(t *testing.T) {
 	x := struct {
-		I uint `dv8:"required"`
+		I uint `dv8:"notzero"`
 	}{
 		I: 1,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 
 	x.I = 0
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestUint_Pointer(t *testing.T) {
 	x := struct {
-		I *uint `dv8:"required"`
+		I *uint `dv8:"notzero"`
 	}{}
 	i := uint(1)
 	x.I = &i
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(1), *x.I)
 
 	x.I = nil
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.ErrorContains(t, err, "required")
 }
 
 func TestUint_Default(t *testing.T) {
 	x := struct {
-		I uint `dv8:"required,default=2"`
+		I uint `dv8:"notzero,default=2"`
 	}{
 		I: 0,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(2), x.I)
 
 	x.I = 8
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(8), x.I)
 }
@@ -72,10 +72,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 0,
 	}
-	err := Validate(&gte)
+	err := Validate(nil, &gte)
 	assert.ErrorContains(t, err, "greater")
 	gte.I = 2
-	err = Validate(&gte)
+	err = Validate(nil, &gte)
 	assert.NoError(t, err)
 
 	gt := struct {
@@ -83,10 +83,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 2,
 	}
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.ErrorContains(t, err, "greater")
 	gt.I = 3
-	err = Validate(&gt)
+	err = Validate(nil, &gt)
 	assert.NoError(t, err)
 
 	lte := struct {
@@ -94,10 +94,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 3,
 	}
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.ErrorContains(t, err, "less")
 	lte.I = 2
-	err = Validate(&lte)
+	err = Validate(nil, &lte)
 	assert.NoError(t, err)
 
 	lt := struct {
@@ -105,10 +105,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 2,
 	}
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.ErrorContains(t, err, "less")
 	lt.I = 1
-	err = Validate(&lt)
+	err = Validate(nil, &lt)
 	assert.NoError(t, err)
 
 	eq := struct {
@@ -116,10 +116,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 1,
 	}
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.ErrorContains(t, err, "equal")
 	eq.I = 2
-	err = Validate(&eq)
+	err = Validate(nil, &eq)
 	assert.NoError(t, err)
 
 	ne := struct {
@@ -127,10 +127,10 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 2,
 	}
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.ErrorContains(t, err, "equal")
 	ne.I = 1
-	err = Validate(&ne)
+	err = Validate(nil, &ne)
 	assert.NoError(t, err)
 
 	bad := struct {
@@ -138,7 +138,7 @@ func TestUint_Val(t *testing.T) {
 	}{
 		I: 0,
 	}
-	err = Validate(&bad)
+	err = Validate(nil, &bad)
 	assert.ErrorContains(t, err, "operator")
 }
 
@@ -156,7 +156,7 @@ func TestUint_Types(t *testing.T) {
 		I32: 0,
 		I64: 0,
 	}
-	err := Validate(&x)
+	err := Validate(nil, &x)
 	assert.Error(t, err, "greater")
 
 	x.I = 3
@@ -164,6 +164,6 @@ func TestUint_Types(t *testing.T) {
 	x.I16 = 3
 	x.I32 = 3
 	x.I64 = 3
-	err = Validate(&x)
+	err = Validate(nil, &x)
 	assert.NoError(t, err)
 }
